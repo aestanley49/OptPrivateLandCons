@@ -1,0 +1,831 @@
+---
+title: "Sup_code"
+author: "Annabelle"
+date: "12/23/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+2 User-defined Functions to Calculate Landscape Metrics
+Functions that calculate mean patch area or adjacency are based on functions from the SDMTools
+package in R, which is based on functions used in FRAGSTATS
+
+
+
+```{r}
+
+fun.LandscapeMetrics <- function(x, fac, cellside , spcode) {
+require(raster)
+require(vegan)
+require(caret)
+require(Hmisc)
+require(SDMTools)
+require(rgdal)
+prop1 <- aggregate(x ==1 | x==2, fac=fac, fun=mean)
+prop3 <- aggregate(x ==3,fac=fac, fun=mean)
+prop4 <- aggregate(x ==4,fac=fac, fun=mean)
+prop5 <- aggregate(x ==5,fac=fac, fun=mean)
+prop6 <- aggregate(x ==6,fac=fac, fun=mean)
+prop7 <- aggregate(x ==7,fac=fac, fun=mean)
+mpa4 <- aggregate(x ==4,fac=fac, fun=function(x,...){
+fun.MeanArea(x, cellside , na.rm=na.rm))
+}
+gadjf <- aggregate(x,fac=fac, fun=function(x,...) fun.GrassForAdj
+(x, cellside) )
+rcadjg <- aggregate(x,fac=fac, fun=function(x,...) fun.RCAdjGrass
+(x, cellside) )
+fadjfph <- aggregate(x,fac=fac, fun=function(x,...) fun.ForFPHAdj
+(x, cellside) )
+fadjrc <- aggregate(x,fac=fac, fun=function(x,...) fun.
+ForRowCropAdj(x, cellside) )
+mpa1 <- aggregate(x ==1 | x==2,fac=fac, fun=function(x,...)
+fun.MeanArea(x, cellside , na.rm=na.rm))
+mpa3 <- aggregate(x ==3,fac=fac, fun=function(x,...)
+fun.MeanArea(x, cellside , na.rm=na.rm))
+mpa5 <- aggregate(x ==5,fac=fac, fun=function(x,...) fun.MeanArea
+(x, cellside ,
+na.rm=na.rm))
+
+mpa6 <- aggregate(x ==6,fac=fac, fun=function(x,...) fun.MeanArea
+(x, cellside ,
+na.rm=na.rm))
+mpa7 <- aggregate(x ==7,fac=fac, fun=function(x,...) fun.MeanArea
+(x, cellside ,
+na.rm=na.rm))
+mpa_allmat <- cbind(getValues(mpa1),getValues(mpa3),getValues(
+mpa4),
+getValues(mpa5), getValues(mpa6), getValues(mpa7))
+mpa_allmat2 <- apply(mpa_allmat , 1, function(x) mean(x, na.rm=T))
+mpa_all <- rasterFromXYZ(data.frame(x=coordinates(mpa1)[,1],
+y=coordinates(mpa1)[,2], z= mpa_allmat2))
+SHDI <- aggregate(x,fac=fac, fun=function(x,...) diversity(table(
+x),
++ index="shannon"))
+stackras <- stack(fadjfph , fadjrc, gadjf, mpa_all , mpa4, prop7,
+prop1, prop3,
+prop4, prop5, prop6, rcadjg, SHDI)
+writeRaster(stackras , paste("CovariateStack_", spcode, ".tif",
+sep’’=),
+format’=’GTiff, overwrite=TRUE)
+}
+
+
+
+
+
+
+
+# Function to calculate mean patch size
+fun.MeanArea <- function(x,cellside ,...){
+require(SDMTools)
+x = try(as.matrix(x))
+if (!is.matrix(x))
+stop("objects must be a matrix")
+if(sum(x, na.rm=T)==0) return(0)
+if(all(x[!is.na(x)]==1)) return(sum(!is.na(x))*cellside^2)
+x = ConnCompLabel(x)
+patchIDs = as.numeric(na.omit(unique(as.vector(x))))
+# Not interested in 0s
+patchIDs = patchIDs[order(patchIDs)][-which(patchIDs[order(
+patchIDs)]==0)]
+# This is a catch error -- if ’theres only the value of interest , and no zeroes,
+# continue. If only zeroes, return zero
+120
+#if(1 %in% x & length(patchIDs)<1) return(0)
+tmp <- NULL
+for(j in 1:length(patchIDs)){
+tmp[j] <- sum(as.numeric(na.omit(as.vector(x)))==patchIDs[j])*
+cellside^2
+}
+# just want mean area, also eliminate first row ’(’zero patches)
+return(mean(tmp, na.rm=T))
+}
+
+# Function to find adjacencies of forest and grassland cells,
+# when forest == 1 or 2
+# and grassland == 4.
+fun.GrassForAdj <- function(x,cellside){
+x = try(as.matrix(x))
+if (!is.matrix(x))
+stop("objects must be a matrix")
+if(all(x[!is.na(x)]==4)) return(0)
+if(all(x[!is.na(x)]==1 | x[!is.na(x)]==2)) return(0)
+n_4adjto1 <- length(adjacent(x, cells=which(x==1 | x==2), target=
+which(x==4),
+directions=8, pairs=F, sorted=TRUE, include=F))*cellside
+return(n_4adjto1)
+}
+# Function to find adjacencies of forest and grassland cells,
+#when forest == 1 or 2
+#and grassland == 4.
+fun.RCAdjGrass <- function(x, cellside){
+x = try(as.matrix(x))
+if (!is.matrix(x))
+stop("objects must be a matrix")
+if(all(x[!is.na(x)]==4)) return(0)
+if(all(x[!is.na(x)]==6)) return(0)
+# Currently calculating distance in meters.
+n_6adjto4 <- length(adjacent(x, cells=which(x==4), target=which(x
+==6), directions=8,
+pairs=F, sorted=TRUE, include=F))*cellside
+return(n_6adjto4)
+121
+}
+
+# Function to find adjacencies of forest and open cells, when
+#forest == 1 or 2
+#and open == 3
+fun.ForFPHAdj <- function(x, cellside){
+x = try(as.matrix(x))
+if (!is.matrix(x))
+stop("objects must be a matrix")
+if(all(x[!is.na(x)]==1 | x[!is.na(x)]==2)) return(0)
+if(all(x[!is.na(x)]==3)) return(0)
+n_1adjtoOpen <- length(adjacent(x, cells=which(x==3), target=
+which(x==1 | x==2),
+directions=8, pairs=F, sorted=TRUE, include=F))*cellside
+return(n_1adjtoOpen)
+}
+# Function to find adjacencies of forest and rowcrop cells, when
+#forest == 1 or 2
+#and rowcrop == 6.
+fun.ForRowCropAdj <- function(x, cellside){
+x = try(as.matrix(x))
+if (!is.matrix(x))
+stop("objects must be a matrix")
+if(all(x[!is.na(x)]==1 | x[!is.na(x)]==2)) return(0)
+if(all(x[!is.na(x)]==6)) return(0)
+n_1adjto6 <- length(adjacent(x, cells=which(x==6), target=which(x
+==1 | x==2),
+directions=8, pairs=F, sorted=TRUE, include=F))*cellside
+return(n_1adjto6)
+}
+
+```
+
+
+
+
+3 Example JAGS model code: Northern Bobwhite response to
+landscape metrics
+```{r}
+model{
+
+  #----- Priors -----
+# Availability
+for(t in 1:nyears){
+phi0[t] ~ dnorm(0, 0.01)
+}
+
+# Perceptibility
+for(t in 1:nyears){
+sigma[t] ~ dunif(0,10)
+}
+
+# Intercept of annual abundance
+# global mean
+mu_theta0 ~ dnorm(0,0.01)
+# annual variation
+sd_theta0 ~ dunif(0,10)
+tau_theta0 <- 1/(sd_theta0*sd_theta0)
+
+# Each year's abundance is a random draw from hierarchical distribution
+for(t in 1:nyears){
+theta0[t] ~ dnorm(mu_theta0 ,tau_theta0)
+
+}
+
+# Landscape -scale estimators
+for(n in 1:ncov){
+thetaL[n] ~ dnorm(0,0.01)
+ }
+
+
+# Site-level random effects
+sd_site ~ dunif(0,10)
+tau_site <- 1/(sd_site*sd_site)
+for(i in 1:nsites){
+eps_site[i] ~ dnorm(0, tau_site)
+}
+
+# Scale of effect
+sigma_cov~ dunif(0,10) # prior (in km)
+# 3.3 Scale of effect
+for(u in 1:U[i]){
+w0[i,u] <- exp(-D[i,u]^2 / (2*sigma_cov^2))
+} #u
+
+w[i,1:U[i]] <- w0[i,1:U[i]]/sum(w0[i,1:U[i]])
+covmat_land.w[i,v] <- sum(w[i,1:U[i]]*covmat_land[i,1:U[i],v] )
+
+
+#----- Observation models -----
+for(t in 1:nyears){
+# Availability
+logit(pAvailPrime[t]) <- phi0[t]
+
+for(c in 1:ntimebins){
+# Availability probabilities for each time bin
+pi_pa[t,c] <- pAvailPrime[t]*pow(1-pAvailPrime[t], (c-1))
+}
+
+pAvail[t] <- sum(pi_pa[t,1:ntimebins])
+
+# Perceptibility
+for(k in 1:nBins){
+
+p[k,t] <- (exp(sigma[t])^2*(1-exp(-db[k+1]^2/(2*exp(sigma[t])^2)))-exp(sigma[t])
+^2*(1-exp(-db[k]^2/(2*exp(sigma[t])^2))))*2*3.1416/(point.area*pix[k])
+pi[k,t] <- p[k,t]*pix[k]
+} #k
+
+pPerc[t] <- sum(pi[1:nBins,t])
+
+for(i in 1:nsites){
+# site x year counts
+y[i,t] ~ dbin(pPerc[t]*pAvail[t], M[i,t])
+
+# Counts in each distance bin
+ydb[i,1:nBins,t] ~ dmulti(pi[1:nBins,t], y[i,t])
+
+# Counts in each time bin
+ytb[i,1:ntimebins ,t] ~ dmulti(pi_pa[t,1:ntimebins], y[i,t])
+} #t
+} #i
+
+#----- Ecological models -----
+for(i in 1:nsites){
+for(t in 1:nyears){
+log(lambda[i,t]) <- theta0[t] +
+thetaL[1]*covmat_land.w[i,1] + # Forest-fescue/hay/pasture edge (linear)
+thetaL[2]*covmat_land.w[i,2] + # Forest-fescue/hay/pasture edge (quadratic)
+thetaL[3]*covmat_land.w[i,3] + # Forest-rowcrop edge (linear)
+thetaL[4]*covmat_land.w[i,4] + # Forest-rowcrop edge (quadratic)
+thetaL[5]*covmat_land.w[i,5] + # Grassland -forest edge
+thetaL[6]*covmat_land.w[i,6] + # Grassland density
+thetaL[7]*covmat_land.w[i,7] + # Rowcrop density
+thetaL[8]*covmat_land.w[i,8] + # Rowcrop -grassland edge
+eps_site[i] # random site effects
+
+M[i,t] ~ dpois(lambda[i,t])
+
+# Discrepancy
+# 5.2 Pearsons residuals for model fit metric
+Pres[i,t] <- (M[i,t]-lambda[i,t])/sqrt(lambda[i,t])
+M.new[i,t] ~ dpois(lambda[i,t])
+Pres.new[i,t] <- (M.new[i,t]-lambda[i,t])/sqrt(lambda[i,t])
+
+Pres2[i,t] <- pow(Pres[i,t], 2)
+Pres.new2[i,t] <- pow(Pres.new[i,t], 2)
+} #t
+
+# 3.3 Scale of effect
+for(u in 1:U[i]){
+w0[i,u] <- exp(-D[i,u]^2 / (2*sigma_cov^2))
+} #u
+
+w[i,1:U[i]] <- w0[i,1:U[i]]/sum(w0[i,1:U[i]])
+
+for(v in 1:ncov){
+covmat_land.w[i,v] <- sum(w[i,1:U[i]]*covmat_land[i,1:U[i],v] )
+} #v
+} #i
+
+
+# 5. Derived parameters:
+for(t in 1:nyears){
+# 5.1 Total population size each year
+Mtot[t] <- sum(M[,t])
+
+# 5.2 Model fit
+fit[t] <- sum(Pres2[,t])
+fit.new[t] <- sum(Pres.new2[,t])
+b_pvalue[t] <- step(fit.new[t] - fit[t])
+} #t
+}
+```
+
+
+5 R code for optimization tool: example scenario where Northern Bobwhite is the only species considered
+
+```{r}
+rm(list=ls())
+# libraries ---------------------------------------------------------------
+require(raster)
+require(tidyverse)
+require(rjags)
+require(GA)
+require(genalg)
+require(sf)
+tdate <- paste0(format(Sys.time(),'%Y'), format(Sys.time(), c('%m')), format(Sys.time(), c('%d')))
+
+#----- Load in model results -----
+load("data/WS_100kit_10kadapt_NOBO_20191105.Rdata")
+burn <- 60000
+reswin <- window(res, start=burn+1)
+mcmat_NOBO <- as.matrix(reswin)
+
+load("data/WS_100kit_10kadapt_EAME_20191105.Rdata")
+burn <- 20000
+reswin <- window(res, start=burn+1)
+
+mcmat_EAME <- as.matrix(reswin)
+
+load("data/WS_100kit_10kadapt_FISP_20191105.Rdata")
+burn <- 20000
+reswin <- window(res, start=burn+1)
+mcmat_FISP <- as.matrix(reswin)
+
+# functions ---------------------------------------------------------------
+# to scale covariates
+scale.fun <- function(newx, oldx) {
+new <- (newx - mean(oldx, na.rm=T))/sd(oldx, na.rm=T)
+return(new)
+}
+# Weighted geometric mean -- for fitness
+weighted.geomean <- function(x, w, ...){
+exp(weighted.mean(log(x), w, ...))
+}
+# to reverse scaling of covariates
+rev.scale.fun <- function(newx, oldx){
+tmp <- (newx * sd(oldx, na.rm=T)) + mean(oldx, na.rm=T)
+return(tmp)
+}
+# Function to find adjacencies of forest and grassland cells, when forest == 1 or 2 and grassland == 4.
+fun.GrassForAdj <- function(ras,cellside){
+ras = try(as.matrix(ras))
+if (!is.matrix(ras))
+stop("objects must be a matrix")
+if(all(ras[!is.na(ras)]==4)) return(0)
+if(all(ras[!is.na(ras)]==1 | ras[!is.na(ras)]==2)) return(0)
+
+n_4adjto1 <- length(raster::adjacent(raster(ras), cells=which(ras==1 | ras==2), target= which(ras==4), directions=8, pairs=F, sorted=TRUE, include=F))*cellside
+return(n_4adjto1)
+}
+
+# Function to find adjacencies of forest and grassland cells, when forest == 1 or 2 and grassland == 4.
+fun.RCAdjGrass <- function(ras, cellside){
+ras = try(as.matrix(ras))
+12
+if (!is.matrix(ras))
+stop("objects must be a matrix")
+if(all(ras[!is.na(ras)]==4)) return(0)
+if(all(ras[!is.na(ras)]==6)) return(0)
+
+# Currently calculating a distance in meters.
+n_6adjto4 <- length(raster::adjacent(raster(ras), cells=which(ras==4), target=which(ras==6), directions=8, pairs=F, sorted=TRUE, include=F))*cellside
+return(n_6adjto4)
+
+}
+fun.ForFPHAdj <- function(ras, cellside){
+ras = try(as.matrix(ras))
+if (!is.matrix(ras))
+stop("objects must be a matrix")
+if(all(ras[!is.na(ras)]==1 | ras[!is.na(ras)]==2)) return(0)
+if(all(ras[!is.na(ras)]==3)) return(0)
+
+n_1adjtoOpen <- length(raster::adjacent(raster(ras), cells=which(ras==3), target=which(ras==1 | ras==2), directions=8, pairs=F, sorted=TRUE, include=F))*cellside
+return(n_1adjtoOpen)
+}
+
+# Function to find adjacencies of forest and rowcrop cells, when forest == 1 or 2 and rowcrop== 6.
+fun.ForRowCropAdj <- function(ras, cellside){
+ras = try(as.matrix(ras))
+if (!is.matrix(ras))
+stop("objects must be a matrix")
+if(all(ras[!is.na(ras)]==1 | ras[!is.na(ras)]==2)) return(0)
+if(all(ras[!is.na(ras)]==6)) return(0)
+
+n_1adjto6 <- length(raster::adjacent(raster(ras), cells=which(ras==6), target=which(ras==1 | ras==2), directions=8, pairs=F, sorted=TRUE, include=F))*cellside
+return(n_1adjto6)
+}
+fun.LandscapeMetrics_EAME <- function(ras, fac, cellside) {
+require(raster)
+# Forest-fescue/pasture/hay adjacency
+fadjfph <- aggregate(ras,fac=fac, fun=function(ras ,...) fun.ForFPHAdj(ras, cellside) )
+13
+# Forest-row crop adjacency
+fadjrc <- aggregate(ras,fac=fac, fun=function(ras ,...) fun.ForRowCropAdj(ras, cellside) )
+# Grassland -forest adjacency
+gadjf <- aggregate(ras,fac=fac, fun=function(ras ,...) fun.GrassForAdj(ras, cellside) )
+# proportion fescue/pasture/hay
+prop3 <- aggregate(ras ==3,fac=fac, fun=mean)
+# proportion grassland
+prop4 <- aggregate(ras ==4,fac=fac, fun=mean)
+# proportion rowcrop
+prop6 <- aggregate(ras ==6,fac=fac, fun=mean)
+# rowcrop -grassland adjacency
+rcadjg <- aggregate(ras,fac=fac, fun=function(ras ,...) fun.RCAdjGrass(ras, cellside) )
+
+stackras <- stack(fadjfph , fadjrc, gadjf, prop3, prop4, prop6, rcadjg)
+return(stackras)
+}
+fun.LandscapeMetrics_FISP <- function(ras, fac, cellside) {
+require(raster)
+# Forest-fescue/pasture/hay adjacency
+fadjfph <- aggregate(ras,fac=fac, fun=function(ras ,...) fun.ForFPHAdj(ras, cellside) )
+# Forest-row crop adjacency
+fadjrc <- aggregate(ras,fac=fac, fun=function(ras ,...) fun.ForRowCropAdj(ras, cellside) )
+# Grassland -forest adjacency
+gadjf <- aggregate(ras,fac=fac, fun=function(ras ,...) fun.GrassForAdj(ras, cellside) )
+# proportion grassland
+prop4 <- aggregate(ras ==4,fac=fac, fun=mean)
+# proportion rowcrop
+prop6 <- aggregate(ras ==6,fac=fac, fun=mean)
+# rowcrop -grassland adjacency
+rcadjg <- aggregate(ras,fac=fac, fun=function(ras ,...) fun.RCAdjGrass(ras, cellside) )
+
+stackras <- stack(fadjfph , fadjrc, gadjf, prop4, prop6, rcadjg)
+return(stackras)
+}
+
+fun.LandscapeMetrics_NOBO <- function(ras, fac, cellside) {
+require(raster)
+# Forest-fescue/pasture/hay adjacency
+fadjfph <- aggregate(ras,fac=fac, fun=function(ras ,...) fun.ForFPHAdj(ras, cellside) )
+# Forest-row crop adjacency
+
+fadjrc <- aggregate(ras,fac=fac, fun=function(ras ,...) fun.ForRowCropAdj(ras, cellside) )
+# Grassland -forest adjacency
+gadjf <- aggregate(ras,fac=fac, fun=function(ras ,...) fun.GrassForAdj(ras, cellside) )
+# proportion grassland
+prop4 <- aggregate(ras ==4,fac=fac, fun=mean)
+# proportion rowcrop
+prop6 <- aggregate(ras ==6,fac=fac, fun=mean)
+# rowcrop -grassland adjacency
+rcadjg <- aggregate(ras,fac=fac, fun=function(ras ,...) fun.RCAdjGrass(ras, cellside) )
+
+stackras <- stack(fadjfph , fadjrc, gadjf, prop4, prop6, rcadjg)
+return(stackras)
+}
+
+# data man ----------------------------------------------------------------
+x1 <- 620500
+y1 <- 4119000
+sub_extent <- c(x1, x1+10000, y1, y1+10000)
+# sub_extent <- c(x1, x1+2000, y1, y1+2000)
+landscape_aoi <- crop(raster("data/ClassifiedImage_RanFor400_utm_20180123.tif"), sub_extent)
+plot(landscape_aoi)
+
+# Buffer the area of interest (but make it so you can't pick a cell there) to remove edge effects
+extended_extent <- c(extent(landscape_aoi)[1]-10000,
+extent(landscape_aoi)[2]+10000,
+extent(landscape_aoi)[3]-10000,
+extent(landscape_aoi)[4]+10000)
+landscape_aoi_buffered <- crop(raster('data/ClassifiedImage_RanFor400_utm_20180123.tif'), extended_extent)
+aoi <- landscape_aoi_buffered
+aoi[] <- 0
+aoi[coordinates(aoi)[,1] > extent(landscape_aoi)[1]
+& coordinates(aoi)[,1] < extent(landscape_aoi)[2]
+& coordinates(aoi)[,2] > extent(landscape_aoi)[3]
+& coordinates(aoi)[,2] < extent(landscape_aoi)[4]] <- 1
+
+# Location of 'eligible ' lands
+# Pasture/hay or row crop (3 or 6)
+eligible_pixels <- (getValues(aoi) == 1
+
+&(getValues(landscape_aoi_buffered) == 3
+| getValues(landscape_aoi_buffered) == 6 ))
+
+# test <- aoi
+# test[eligible_pixels] <- 1000
+# plot(test)
+
+# Try making a fishnet , and using this as the allelles in the GA.
+# If an allele = 1, then all of the eligible land in that block get converted...
+cellsize <- 1000 #m
+landscape_grid <- st_make_grid(landscape_aoi_buffered , crs=CRS(landscape_aoi_buffered),
+cellsize=cellsize) %>%
+st_sf('geometry ' = ., data.frame('ID' = 1:length(.)))
+
+landscape_grid_raster <- fasterize::fasterize(sf=landscape_grid , raster= landscape_aoi_buffered , field='ID')
+plot(landscape_grid_raster)
+polygon(x=c(extent(landscape_aoi)[1],extent(landscape_aoi)[1], extent(landscape_aoi)[2], extent(landscape_aoi)[2]),
+y=c(extent(landscape_aoi)[3],extent(landscape_aoi)[4], extent(landscape_aoi)[4], extent(landscape_aoi)[3]),
+col=NA, border=adjustcolor('black', 1), lwd=3)
+
+# How large is one of the grids?
+grid_acres <- ((extent(landscape_grid[1,])[2] - extent(landscape_grid[1,])[1]) *
+(extent(landscape_grid[1,])[4] - extent(landscape_grid[1,])[3]))/4047
+
+# Acres cap may need to change if I were to do a "second" round that zoomed in on the selected pixels.
+# This is only to determine the number of pixels allowed to be selected.
+acres_cap <- 2500
+
+# How many grids = acres cap?
+pixels_cap <- round(acres_cap/grid_acres)
+
+# Which grids are allowed to be chosen?
+eligible_grids <- unique(getValues(landscape_grid_raster)[getValues(aoi)==1])
+# This is ordered top to bottom, left to right.
+# this is the order that matters.
+# So in this test run grid 1 = cell 299 in the raster.
+
+# Number of genes in each potential solution = number of eligible_grids
+nBits <- length(eligible_grids)
+
+# A test solution
+test_solution <- rep(0,nBits)
+# restrict alleles to turn on only in eligible grids
+# do this by sampling 1:length(eligible_grids), then picking a grid ID based on that
+test_solution[sample(1:length(eligible_grids), pixels_cap , replace=F)] <- 1
+xx <- test_solution
+
+# so when xx = 010000001, grids 98 73 are chosen
+
+cellside <- 30.00006
+fac <- c(21,25,27) # See data organization code
+names(fac) <- c("EAME","FISP","NOBO")
+
+#Create a focal window to smooth the landscape
+#Pick a cell in real landscape that's not on the edge (don't know if this really matters.)
+#----- EAME
+cell <- 15000
+# Distances to use for calculation of relationship between distance and importance of land features
+Dtmp_EAME <- single_e2dist(coordinates(ForestAdjFPH_EAME)[cell,], coordinates(ForestAdjFPH_EAME))*0.001
+# Search radius is 10 km
+Utmp_EAME <- which(Dtmp_EAME <=10)
+#
+# #----- FISP
+cell <- 10000
+# Distances to use for calculation of relationship between distance and importance of land features
+Dtmp_FISP <- single_e2dist(coordinates(ForestAdjFPH_FISP)[cell,], coordinates(ForestAdjFPH_FISP))*0.001
+# Search radius is 10 km
+Utmp_FISP <- which(Dtmp_FISP <=10)
+
+#----- NOBO
+cell <- 10000
+
+# Distances to use for calculation of relationship between distance and importance of land features
+Dtmp_NOBO <- single_e2dist(coordinates(ForestAdjFPH_NOBO)[cell,], coordinates(ForestAdjFPH_NOBO))*0.001
+# Search radius is 10 km
+Utmp_NOBO <- which(Dtmp_NOBO <=10)
+
+#
+# # median values to use in simulation
+EAME_median_sigma_x <- median(mcmat_EAME[,'sigma_cov '])
+EAME_median_theta0 <- apply(mcmat_EAME[,grep('theta0[', colnames(mcmat_EAME), fixed=T)], 2,median)
+EAME_median_thetaL <- apply(mcmat_EAME[,grep('thetaL[', colnames(mcmat_EAME), fixed=T)], 2,median)
+
+FISP_median_sigma_x <- median(mcmat_FISP[,'sigma_cov '])
+FISP_median_theta0 <- apply(mcmat_FISP[,grep('theta0[', colnames(mcmat_FISP), fixed=T)], 2,median)
+FISP_median_thetaL <- apply(mcmat_FISP[,grep('thetaL[', colnames(mcmat_FISP), fixed=T)], 2,median)
+
+NOBO_median_sigma_x <- median(mcmat_NOBO[,'sigma_cov '])
+NOBO_median_theta0 <- apply(mcmat_NOBO[,grep('theta0[', colnames(mcmat_NOBO), fixed=T)], 2,median)
+NOBO_median_thetaL <- apply(mcmat_NOBO[,grep('thetaL[', colnames(mcmat_NOBO), fixed=T)], 2,median)
+
+test_opt_landscape <-landscape_aoi_buffered
+test_opt_landscape[
+getValues(landscape_grid_raster) %in% eligible_grids[xx==1]
+& eligible_pixels] <- 4
+
+plot(landscape_aoi_buffered)
+plot(test_opt_landscape)
+polygon(x=c(extent(landscape_aoi)[1],extent(landscape_aoi)[1], extent(landscape_aoi)[2], extent(landscape_aoi)[2]),
+y=c(extent(landscape_aoi)[3],extent(landscape_aoi)[4], extent(landscape_aoi)[4], extent(landscape_aoi)[3]),
+col=NA, border=adjustcolor('black', 1), lwd=3)
+
+
+# how much do we value each species?
+spec_weights <- c(1/3, 1/3, 1/3)
+
+# Function to simulate land enrollment effects for each species --------
+fun.SimLandEnroll <- function(xx){
+require(raster)
+require(vegan)
+require(caret)
+require(Hmisc)
+require(SDMTools)
+require(rgdal)
+
+
+# * Change landscape based on chosen solution -----------------------------
+
+# First, incur a "penalty" that caps the grassland enrolled to an acreage
+# If sum of the "chromosome" > pixel cap, then gets a 0, meaning it's not optmimum
+if(sum(xx) > pixels_cap ){
+# penalty <- sqrt(.Machine$double.xmax)
+penalty <- 0
+return(penalty)
+} else {
+
+
+# Change the subsetted landscape based on the "individual solution 's chromosome"
+# i.e., the random allocation of grassland acres for that potential initial solution
+conservation_landscape_aoi_buffered <- landscape_aoi_buffered
+# Which pixels are in the grids chosen by the chromosome?
+gridpix <- getValues(landscape_grid_raster) %in% eligible_grids[which(xx==1)]
+
+# Convert pixels that are chosen and eligible to grassland (4)
+conservation_landscape_aoi_buffered[gridpix & eligible_pixels] <- 4
+
+#* * * Added on later -- just to see what optimized landscapes produced
+# conservation_landscape_aoi_buffered <- raster("output/OptLand_AllSpecies_20200108.tif")
+#conservation_landscape_aoi_buffered <- raster("output/OptLand_NOBOWeight1_20200108.tif")
+
+# * * EAME landscape metrics for prediction -------------------------------
+# Calculate new landscape metrics
+
+# land_metrics_EAME <- fun.LandscapeMetrics_EAME(ras=conservation_landscape_aoi_buffered ,fac=fac['EAME'], cellside=cellside)
+#
+# # scaled covariates - scale relative to entire landscape , as it is done in the analysis, so predictions are valide
+# sc_ForestAdjFPH_EAME <- scale.fun(land_metrics_EAME[[1]], raster::extract(ForestAdjFPH_EAME , coordinates(ForestAdjFPH_EAME)))
+# sc_ForestAdjRowCrop_EAME <- scale.fun(land_metrics_EAME[[2]], raster::extract(ForestAdjRowCrop_EAME , coordinates(ForestAdjRowCrop_EAME)))
+# sc_GrasslandAdjForest_EAME <- scale.fun(land_metrics_EAME[[3]], raster::extract(GrasslandAdjForest_EAME , coordinates(GrasslandAdjForest_EAME)))
+# sc_ProportionFPH_EAME <- scale.fun(land_metrics_EAME[[4]], raster::extract(ProportionFPH_EAME , coordinates(ProportionFPH_EAME)))
+# sc_ProportionGrassland_EAME <- scale.fun(land_metrics_EAME[[5]], raster::extract(ProportionGrassland_EAME , coordinates(ProportionGrassland_EAME)))
+# sc_ProportionRowcrop_EAME <- scale.fun(land_metrics_EAME[[6]], raster::extract(ProportionRowcrop_EAME , coordinates(ProportionRowcrop_EAME)))
+# sc_RowCropAdjGrassland_EAME <- scale.fun(land_metrics_EAME[[7]], raster::extract(RowCropAdjGrassland_EAME , coordinates(RowCropAdjGrassland_EAME)))
+#
+# # distance -based scale of effect, EAME
+# w0tmp_EAME <- exp(-Dtmp_EAME[Utmp_EAME]^2 / (2*EAME_median_sigma_x^2))
+# wmattmp_EAME <- w0tmp_EAME/sum(w0tmp_EAME)
+#
+# weightras_EAME <- rasterFromXYZ(data.frame(x=coordinates(ForestAdjFPH_EAME)[Utmp_EAME,1], y=coordinates(ForestAdjFPH_EAME)[Utmp_EAME ,2], z=wmattmp_EAME))
+# fw_EAME <- as.matrix(weightras_EAME)
+# fw_EAME[is.na(fw_EAME)] <- 0
+#
+# # Smooth landscape based on scale of effect estimate (using focal window created above)
+# focal_ForestAdjFPH_EAME <- focal(sc_ForestAdjFPH_EAME , fw_EAME , sum, na.rm=TRUE, pad=TRUE, padValue=NA)
+# focal_ForestAdjRowCrop_EAME <- focal(sc_ForestAdjRowCrop_EAME , fw_EAME , sum, na.rm=TRUE, pad=TRUE, padValue=NA)
+# focal_GrasslandAdjForest_EAME <- focal(sc_GrasslandAdjForest_EAME , fw_EAME , sum, na.rm=TRUE, pad=TRUE, padValue=NA)
+# focal_ProportionFPH_EAME <- focal(sc_ProportionFPH_EAME , fw_EAME , sum, na.rm=TRUE, pad=TRUE, padValue=NA)
+# focal_ProportionGrassland_EAME <- focal(sc_ProportionGrassland_EAME , fw_EAME , sum, na.rm=TRUE, pad=TRUE, padValue=NA)
+
+# focal_ProportionRowcrop_EAME <- focal(sc_ProportionRowcrop_EAME , fw_EAME , sum, na.rm=TRUE, pad=TRUE, padValue=NA)
+# focal_RowCropAdjGrassland_EAME <- focal(sc_RowCropAdjGrassland_EAME , fw_EAME , sum, na.rm=TRUE, pad=TRUE, padValue=NA)
+#
+#
+# # * * FISP landscape metrics ----------------------------------------------
+# # Calculate new landscape metrics
+# land_metrics_FISP <- fun.LandscapeMetrics_FISP(ras=conservation_landscape_aoi_buffered ,fac=fac['FISP'], cellside=cellside)
+#
+# # scaled covariates - scale relative to entire landscape , as it is done in the analysis, so predictions are valide
+# sc_ForestAdjFPH_FISP <- scale.fun(land_metrics_FISP[[1]], raster::extract(ForestAdjFPH_FISP , coordinates(ForestAdjFPH_FISP)))
+# sc_ForestAdjFPH2_FISP <- sc_ForestAdjFPH_FISP*sc_ForestAdjFPH_FISP
+# sc_ForestAdjRowCrop_FISP <- scale.fun(land_metrics_FISP[[2]], raster::extract(ForestAdjRowCrop_FISP , coordinates(ForestAdjRowCrop_FISP)))
+# sc_ForestAdjRowCrop2_FISP <- sc_ForestAdjRowCrop_FISP*sc_ForestAdjRowCrop_FISP
+# sc_GrasslandAdjForest_FISP <- scale.fun(land_metrics_FISP[[3]], raster::extract(GrasslandAdjForest_FISP , coordinates(GrasslandAdjForest_FISP)))
+# sc_ProportionGrassland_FISP <- scale.fun(land_metrics_FISP[[4]], raster::extract(ProportionGrassland_FISP , coordinates(ProportionGrassland_FISP)))
+# sc_ProportionRowcrop_FISP <- scale.fun(land_metrics_FISP[[5]], raster::extract(ProportionRowcrop_FISP , coordinates(ProportionRowcrop_FISP)))
+# sc_RowCropAdjGrassland_FISP <- scale.fun(land_metrics_FISP[[6]], raster::extract(RowCropAdjGrassland_FISP , coordinates(RowCropAdjGrassland_EAME)))
+#
+# # distance -based scale of effect
+# w0tmp_FISP <- exp(-Dtmp_FISP[Utmp_FISP]^2 / (2*FISP_median_sigma_x^2))
+# wmattmp_FISP <- w0tmp_FISP/sum(w0tmp_FISP)
+#
+# weightras_FISP <- rasterFromXYZ(data.frame(x=coordinates(ForestAdjFPH_FISP)[Utmp_FISP,1], y=coordinates(ForestAdjFPH_FISP)[Utmp_FISP ,2], z=wmattmp_FISP))
+# fw_FISP <- as.matrix(weightras_FISP)
+# fw_FISP[is.na(fw_FISP)] <- 0
+#
+# # Smooth landscape based on scale of effect estimate (using focal window created above)
+# focal_ForestAdjFPH_FISP <- focal(sc_ForestAdjFPH_FISP , fw_FISP , sum, na.rm=TRUE, pad=TRUE, padValue=NA)
+
+# focal_ForestAdjFPH2_FISP <- focal(sc_ForestAdjFPH2_FISP , fw_FISP , sum, na.rm=TRUE, pad=TRUE, padValue=NA)
+# focal_ForestAdjRowCrop_FISP <- focal(sc_ForestAdjRowCrop_FISP , fw_FISP , sum, na.rm=TRUE, pad=TRUE, padValue=NA)
+# focal_ForestAdjRowCrop2_FISP <- focal(sc_ForestAdjRowCrop2_FISP , fw_FISP , sum, na.rm=TRUE, pad=TRUE, padValue=NA)
+# focal_GrasslandAdjForest_FISP <- focal(sc_GrasslandAdjForest_FISP , fw_FISP , sum, na.rm=TRUE, pad=TRUE, padValue=NA)
+# focal_ProportionGrassland_FISP <- focal(sc_ProportionGrassland_FISP , fw_FISP , sum, na.rm=TRUE, pad=TRUE, padValue=NA)
+# focal_ProportionRowcrop_FISP <- focal(sc_ProportionRowcrop_FISP , fw_FISP , sum, na.rm=TRUE, pad=TRUE, padValue=NA)
+# focal_RowCropAdjGrassland_FISP <- focal(sc_RowCropAdjGrassland_FISP , fw_FISP , sum, na.rm=TRUE, pad=TRUE, padValue=NA)
+#
+# * * NOBO landscape metrics ----------------------------------------------
+# Calculate new landscape metrics
+land_metrics_NOBO <- fun.LandscapeMetrics_NOBO(ras=conservation_landscape_aoi_buffered ,fac=fac['NOBO'], cellside=cellside)
+
+# scaled covariates - scale relative to entire landscape , as it is done in the analysis ,so predictions are valide
+sc_ForestAdjFPH_NOBO <- scale.fun(land_metrics_NOBO[[1]], raster::extract(ForestAdjFPH_NOBO , coordinates(ForestAdjFPH_NOBO)))
+sc_ForestAdjFPH2_NOBO <- sc_ForestAdjFPH_NOBO*sc_ForestAdjFPH_NOBO
+sc_ForestAdjRowCrop_NOBO <- scale.fun(land_metrics_NOBO[[2]], raster::extract(ForestAdjRowCrop_NOBO , coordinates(ForestAdjRowCrop_NOBO)))
+sc_ForestAdjRowCrop2_NOBO <- sc_ForestAdjRowCrop_NOBO*sc_ForestAdjRowCrop_NOBO
+sc_GrasslandAdjForest_NOBO <- scale.fun(land_metrics_NOBO[[3]], raster::extract(GrasslandAdjForest_NOBO , coordinates(GrasslandAdjForest_NOBO)))
+sc_ProportionGrassland_NOBO <- scale.fun(land_metrics_NOBO[[4]], raster::extract(ProportionGrassland_NOBO , coordinates(ProportionGrassland_NOBO)))
+sc_ProportionRowcrop_NOBO <- scale.fun(land_metrics_NOBO[[5]], raster::extract(ProportionRowcrop_NOBO , coordinates(ProportionRowcrop_NOBO)))
+sc_RowCropAdjGrassland_NOBO <- scale.fun(land_metrics_NOBO[[6]], raster::extract(RowCropAdjGrassland_NOBO , coordinates(RowCropAdjGrassland_EAME)))
+
+# distance -based scale of effect
+w0tmp_NOBO <- exp(-Dtmp_NOBO[Utmp_NOBO]^2 / (2*NOBO_median_sigma_x^2))
+wmattmp_NOBO <- w0tmp_NOBO/sum(w0tmp_NOBO)
+
+
+weightras_NOBO <- rasterFromXYZ(data.frame(x=coordinates(ForestAdjFPH_NOBO)[Utmp_NOBO ,1],y=coordinates(ForestAdjFPH_NOBO)[Utmp_NOBO ,2], z=wmattmp_NOBO))
+fw_NOBO <- as.matrix(weightras_NOBO)
+fw_NOBO[is.na(fw_NOBO)] <- 0
+
+# Smooth landscape based on scale of effect estimate (using focal window created above)
+focal_ForestAdjFPH_NOBO <- focal(sc_ForestAdjFPH_NOBO , fw_NOBO , sum, na.rm=TRUE, pad=TRUE, padValue=NA)
+focal_ForestAdjFPH2_NOBO <- focal(sc_ForestAdjFPH2_NOBO , fw_NOBO , sum, na.rm=TRUE, pad=TRUE, padValue=NA)
+focal_ForestAdjRowCrop_NOBO <- focal(sc_ForestAdjRowCrop_NOBO , fw_NOBO , sum, na.rm=TRUE,pad=TRUE, padValue=NA)
+focal_ForestAdjRowCrop2_NOBO <- focal(sc_ForestAdjRowCrop2_NOBO , fw_NOBO , sum, na.rm=TRUE, pad=TRUE, padValue=NA)
+focal_GrasslandAdjForest_NOBO <- focal(sc_GrasslandAdjForest_NOBO , fw_NOBO , sum, na.rm=TRUE, pad=TRUE, padValue=NA)
+focal_ProportionGrassland_NOBO <- focal(sc_ProportionGrassland_NOBO , fw_NOBO , sum, na.rm=TRUE, pad=TRUE, padValue=NA)
+focal_ProportionRowcrop_NOBO <- focal(sc_ProportionRowcrop_NOBO , fw_NOBO , sum, na.rm=TRUE, pad=TRUE, padValue=NA)
+focal_RowCropAdjGrassland_NOBO <- focal(sc_RowCropAdjGrassland_NOBO , fw_NOBO , sum, na.rm=TRUE, pad=TRUE, padValue=NA)
+
+# Predict cumulative abundance across 6 years for each species
+ENsurf_EAME <- ENsurf_FISP <- ENsurf_NOBO <- 0
+for(t in 1:nyrs){
+# ENsurf_EAME <- ENsurf_EAME + sum(
+# exp(
+# EAME_median_theta0[t]
+# + EAME_median_thetaL[1]*raster::extract(focal_ForestAdjFPH_EAME ,coordinates(focal_ForestAdjFPH_EAME))
+# + EAME_median_thetaL[2]*raster::extract(focal_ForestAdjRowCrop_EAME , coordinates(focal_ForestAdjRowCrop_EAME))
+# + EAME_median_thetaL[3]*raster::extract(focal_GrasslandAdjForest_EAME ,coordinates(focal_GrasslandAdjForest_EAME))
+# + EAME_median_thetaL[4]*raster::extract(focal_ProportionFPH_EAME , coordinates(focal_ProportionFPH_EAME))
+# + EAME_median_thetaL[5]*raster::extract(focal_ProportionGrassland_EAME ,coordinates(focal_ProportionGrassland_EAME))
+
+# + EAME_median_thetaL[6]*raster::extract(focal_ProportionRowcrop_EAME , coordinates(focal_ProportionRowcrop_EAME))
+# + EAME_median_thetaL[7]*raster::extract(focal_RowCropAdjGrassland_EAME ,coordinates(focal_RowCropAdjGrassland_EAME))
+# )
+# )
+# ENsurf_FISP <- ENsurf_FISP + sum(
+# exp(
+# FISP_median_theta0[t]
+# + FISP_median_thetaL[1]*raster::extract(focal_ForestAdjFPH_FISP ,coordinates(focal_ForestAdjFPH_FISP))
+# + FISP_median_thetaL[2]*raster::extract(focal_ForestAdjFPH2_FISP ,coordinates(focal_ForestAdjFPH_FISP))
+# + FISP_median_thetaL[3]*raster::extract(focal_ForestAdjRowCrop_FISP , coordinates(focal_ForestAdjRowCrop_FISP))
+# + FISP_median_thetaL[4]*raster::extract(focal_ForestAdjRowCrop2_FISP , coordinates(focal_ForestAdjRowCrop_FISP))
+# + FISP_median_thetaL[5]*raster::extract(focal_GrasslandAdjForest_FISP ,coordinates(focal_GrasslandAdjForest_FISP))
+# + FISP_median_thetaL[6]*raster::extract(focal_ProportionGrassland_FISP ,coordinates(focal_ProportionGrassland_FISP))
+# + FISP_median_thetaL[7]*raster::extract(focal_ProportionRowcrop_FISP , coordinates(focal_ProportionRowcrop_FISP))
+# + FISP_median_thetaL[8]*raster::extract(focal_RowCropAdjGrassland_FISP ,coordinates(focal_RowCropAdjGrassland_FISP))
+# )
+# )
+ENsurf_NOBO <- ENsurf_NOBO + sum(
+exp(
+NOBO_median_theta0[t]
++ NOBO_median_thetaL[1]*raster::extract(focal_ForestAdjFPH_NOBO ,coordinates(focal_ForestAdjFPH_NOBO))
++ NOBO_median_thetaL[2]*raster::extract(focal_ForestAdjFPH2_NOBO ,coordinates(focal_ForestAdjFPH_NOBO))
++ NOBO_median_thetaL[3]*raster::extract(focal_ForestAdjRowCrop_NOBO , coordinates(focal_ForestAdjRowCrop_NOBO))
++ NOBO_median_thetaL[4]*raster::extract(focal_ForestAdjRowCrop2_NOBO , coordinates(focal_ForestAdjRowCrop_NOBO))
++ NOBO_median_thetaL[5]*raster::extract(focal_GrasslandAdjForest_NOBO , coordinates(focal_GrasslandAdjForest_NOBO))
++ NOBO_median_thetaL[6]*raster::extract(focal_ProportionGrassland_NOBO , coordinates(focal_ProportionGrassland_NOBO))
++ NOBO_median_thetaL[7]*raster::extract(focal_ProportionRowcrop_NOBO , coordinates(focal_ProportionRowcrop_NOBO))
++ NOBO_median_thetaL[8]*raster::extract(focal_RowCropAdjGrassland_NOBO , coordinates(focal_RowCropAdjGrassland_NOBO))
+)
+)
+}
+
+# Weighted abundances. weights = value of species , basically
+J <- ENsurf_NOBO
+# when considering all species , use the following:
+#weighted.geomean(x=c(ENsurf_EAME ,ENsurf_FISP ,ENsurf_NOBO), w = spec_weights)
+
+return(J)
+# return(-1*J)
+}
+}
+fun.SimLandEnroll(test_solution)
+
+# Set up inputs for GA ----------------------------------------------------
+# Memoize the fitness function (makes it faster, apparently)
+# mfun.SimLandEnroll.GA <- memoise::memoise(fun.SimLandEnroll.GA)
+mfun.SimLandEnroll <- memoise::memoise(fun.SimLandEnroll)
+
+# Initialize the algorithm with the maximum number of "allowed" pixels (b/c of acreage cap), randomly assorted
+# npop <- length(eligible_grids)*5
+npop <- nBits*10 # DEoptim command suggests that population size should be 10x the number of parameters
+# Give the algorithm a few suggested solutions
+tmp_suggest <- array(NA, c(npop, length(eligible_grids)))
+for(i in 1:nrow(tmp_suggest)){
+tmp_suggest[i,] <- rep(0, length(eligible_grids))
+tmp_suggest[i,sample(1:length(eligible_grids), pixels_cap , replace=F)] <-1
+}
+rowSums(tmp_suggest)
+
+# More parents (pop size) but less generations??
+
+# nBits is the number of grids in the landscape (number of genes)
+
+# Run the GA --------------------------------------------------------------
+GA <- ga(type = "binary",
+fitness = mfun.SimLandEnroll ,
+popSize = npop,
+maxiter = 1000,
+run = 30, # number of times the solution stays the same before stopping
+nBits = nBits,
+pcrossover = 0.8, # holzkamper et al use 0.6
+# pmutation = 0.01, # same as holzkamper et al
+pmutation = 0.1, # 0.01 may not explore "solution space"
+suggestions = tmp_suggest ,
+keepBest = TRUE,
+parallel = 5,
+elitism = round(npop*0.1),
+crossover = 'gabin_spCrossover ',
+selection = 'gabin_tourSelection ', # Tournament selection method
+mutation = 'gabin_raMutation '
+)
+
+summary(GA)
+
+```
+
+
+
+
+
