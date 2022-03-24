@@ -1,0 +1,30 @@
+---
+title: "Genetic Algorithm"
+author: "Annabelle Stanley"
+date: "3/18/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.width = 8, collapse = TRUE)
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=70),tidy=TRUE)
+```
+
+\tableofcontents
+
+Overview/intro section here... 
+
+Objectives of independent study
+-	demonstrate genetic algorithm and simulated annealing functions in R to solve simple problems
+-	Demonstrate how each could be on landscape with simple fitness function
+-	Sprinkle in stochasticity (eg partial controllability) 
+
+
+
+\section{Getting Started}
+
+oh boy 
+
+
+\section{Getting S}
