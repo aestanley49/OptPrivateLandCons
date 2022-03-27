@@ -12,7 +12,8 @@ library(ggplot2)
 library(here)
 library(tidyverse)
 
-
+library(GA)
+library(genalg)
 
 
 #############################
@@ -240,15 +241,91 @@ Patch_Actions <- Patch_Actions %>% mutate(Bird_Count_w_Actions = TimM_bird_count
   # ie, if burn = 4 in column and chosing 10 parcels, can't have value greater than ~28 (didn't do math here)?
   # or flip (might be easier) if burn = 1, the chromosome value has to be greater than 20 (also didn't do math..)
 
-# First, incur a "penalty" that caps the grassland enrolled to an acreage
-# If sum of the "chromosome" > pixel cap, then gets a 0, meaning it's not optmimum
-if(sum(xx) > pixels_cap ){
-  # penalty <- sqrt(.Machine$double.xmax)
-  penalty <- 0
-  return(penalty)
-} else {
-  ## rest of fitness function would go here.. 
+Patch_Actions <- Patch_Actions %>% 
+  mutate(act_cat = case_when(Action_Zzz == 1 ~ 4, 
+                             Action_Graze == 1 ~ 3,
+                             Action_timMang == 1 ~ 2,
+                             Action_Burn == 1 ~ 1))
+
+## So the columns we want to focus on in GA are.. 
+Patch_Actions_Prep <- Patch_Actions %>% select(Bird_Count_w_Actions, act_cat)
+
+
+### ###
+
+action_distr <- 15 
+No_patches <- 10 
+
+evalFunc <- function(x) {
+  #Want to enforce the diversity of actions 
+  df <- Patch_Actions_Prep[x == 1, ]
+  total_weight <- sum(df$act_cat)
+  total_weight <- if_else(total_weight < action_distr, 0, total_weight)
+  return(total_weight)
+  # As well as the number of patches selected 
+  no_patch_selected <- length(df$act_cat)
+  total_patches <- if_else(no_patch_selected > No_patches, 0, total_patches)
+  return(total_patches)
+  # Maximize number of birds???
 }
+
+
+### trying from a different example... 
+
+Gems <- Patch_Actions %>% select(Patch_ID, Bird_Count_w_Actions, act_cat)
+
+### Creating a random chromosome to check function with... 
+Gems$ran=sample(8,nrow(Gems),T)
+Gems[which(Gems$ran != 1),4] <- 0
+
+fun_tryme <- function(x){
+  value = x*Gems[,2]
+  total_value_of_chromosome = sum(value)
+  
+  # Control the number of patches selected 
+  No_patches <- 50
+  no_patch_selected <- sum(x)
+  total_value_of_chromosome <- if_else(no_patch_selected > No_patches, 0, total_value_of_chromosome)
+  
+  # controls value of actions (don't want all to be the same action )
+  action = sum(x*Gems[,3])
+  maxcount <- 20
+  if(action < maxcount)
+    return(0)
+  else
+    return(total_value_of_chromosome)
+}
+
+
+# fun_tryme(Gems$ran) # testing to make sure function works 
+
+
+gann <- ga(type = "binary", fitness = fun_tryme, popSize = 200, maxiter = 1000, run = 250, 
+           suggestions = Gems$ran, ### providing initial solution so GA has somewhere to start
+            nBits = nrow(Gems), seed = 123)
+plot(gann)
+
+summary(gann)
+
+df_sol <- Gems[gann@solution[1, ] == 1, ]
+
+ga_best_solution = gann@solution 
+
+gann@fitnessValue
+
+
+
+## adding best solution to df so can see which patches & actions are selected... 
+
+Sol_Gems <- Gems
+Sol_Gems$solution <- t(ga_best_solution)
+## okay so this code works, but it is mostly chosing actions that are 1s or 2s... why's that?? 
+
+
+
+
+### ### Next step will be to have GA randomly assign different actions (see wearehouse problem), 
+  # and then apply bird popn functions to pick best combo 
 
 
 
