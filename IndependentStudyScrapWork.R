@@ -41,13 +41,13 @@ m = matrix(0, 100, 100)
 ## Put that landscape into a raster 
 r = raster(m, xmn=0, xmx=100, ymn=0, ymx=100)
 ## First random value generated for size
-k1 <- rtruncnorm(n=1, a=0.1, b=60, mean=30, sd=25.09)
+k1 <- rtruncnorm(n=1, a=0.1, b=60, mean=10, sd=25.09)
 # create first patch then add to landscape
 rr = makePatch(r, size = k1, val=1, rast=TRUE) # create first patch then add to landscape
 
 ## Loop over landscape to create patches 
 for (i in 1:n.patch){
-  k1 <- rtruncnorm(n=1, a=0.1, b=60, mean=30, sd=25.09) # Generate a random value for patch size with a min of .1 and max of 60
+  k1 <- rtruncnorm(n=1, a=0.1, b=60, mean=10, sd=25.09) # Generate a random value for patch size with a min of .1 and max of 60
   ID <- c(i + 1) # To create the ID, add 1 for each run 
   rr = makePatch(rr, size = k1, val=ID, rast=TRUE) 
   plot(rr)
@@ -283,13 +283,13 @@ fun_tryme <- function(x){
   total_value_of_chromosome = sum(value)
   
   # Control the number of patches selected 
-  No_patches <- 50
+  No_patches <- 34
   no_patch_selected <- sum(x)
   total_value_of_chromosome <- if_else(no_patch_selected > No_patches, 0, total_value_of_chromosome)
   
   # controls value of actions (don't want all to be the same action )
   action = sum(x*Gems[,3])
-  maxcount <- 20
+  maxcount <- 15
   if(action < maxcount)
     return(0)
   else
