@@ -16,6 +16,122 @@ library(GA)
 library(genalg)
 
 
+### Another knapsack problem 
+# https://www.dataminingapps.com/2017/03/solving-the-knapsack-problem-with-a-simple-genetic-algorithm/
+
+
+
+
+
+
+### ### R code for writing GA without package 
+
+# https://medium.com/@mblorstad/genetic-algorithm-from-scratch-using-r-a36dc664c46e
+
+## set up 
+rm(list=ls(all=TRUE))
+#if package not installer 
+# install.packages("rlist")
+library(rlist)
+set.seed(1)
+
+# Data
+Gems <- data.frame(
+  Color = c("Red", "Blue", "Purple", "Orange", "Green", "Pink", "White", "Black", "Yellow"),
+  Weight = round(runif(9,0.5,5),2),
+  Value = round(abs(rnorm(9,0,5))+0.5,2)
+)
+
+# Task: Gem selection. 
+# Aim: Get highest combined value.
+# Restriction: Max weight of the gem combined = 10. 
+
+
+InitilzePop <- function(size){
+  #pop<- lapply(1:size, function(pop) round(runif(nrow(Gems),0,1),0))
+  pop <- (t(sapply(1:size, function(pop) round(runif(nrow(Gems),0,1),0))))
+  colnames(pop)<- Gems$Color
+  return(pop)
+}
+  
+
+# fitness function
+fitness_function <- function(population){
+  
+  score<-0
+  for (i in 1:nrow(population)) {
+    temp <-apply(Gems[which(population[i,1:nrow(Gems)]==1),2:3],2, sum)
+    
+    weightRestriction <- ## This controls action sum 
+    score[i]<- ifelse(temp[2]>weightRestriction, 0 , temp[1])
+    
+  }
+  pop<- cbind(population,score)
+  pop<-pop[order(score, decreasing = T),]
+  return(pop)
+  
+}
+
+
+
+
+
+
+
+
+### This one actually looks good... 
+
+# https://rpubs.com/Argaadya/550805
+
+
+df_item <- data.frame(item = c("Tires", "Bumper", "Engine", "Chasis", "Seat"), freq = c(80, 50, 70, 50, 70), weight = c(7, 17, 158, 100, 30))
+df_item_long <- df_item[rep(rownames(df_item), df_item$freq), c(1, 3)]
+
+df_item_long
+
+weightlimit <- 10000
+
+evalFunc <- function(x) {
+  df <- df_item_long[x == 1, ]
+  total_weight <- sum(df$weight)
+  total_weight <- if_else(total_weight > weightlimit, 0, total_weight)
+  return(total_weight)
+  
+  
+}
+
+gann2 <- ga(type = "binary", fitness = evalFunc, popSize = 100, maxiter = 100, run = 20, 
+            nBits = nrow(df_item_long), seed = 123)
+
+summary(gann2)
+
+
+# let's chose one of the solutions as our optimal choice
+
+df_sol <- df_item_long[gann2@solution[1, ] == 1, ]
+df_sol <- df_sol %>% group_by(item, weight) %>% summarise(freq = n()) %>% mutate(total_weigth = freq * 
+                                                                                   weight)
+
+df_sol
+
+# Check the total weight 
+sum(df_sol$total_weigth)
+
+
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+
+
+
+### another example in .r 
+
+# https://towardsdatascience.com/genetic-algorithm-explained-step-by-step-65358abe2bf
+
+
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 
 
 ### some econ example that uses a penalty function 
@@ -41,6 +157,9 @@ Prod <- data.frame(prod=c('P1','P2','P3','P4','P5','P6','P7','P8','P9','P10'),Vo
 WH <- data.frame(WH=c('1','2','3','4'),WH.Cost=c(5,10,12,15),Capacity=c(25,25,25,55))
 
 
+### Let's create a mock solution to see how functio works 
+sol <- c(2,3,4,1,1,4,2,1,2,2)
+
 func <- function(sol){
   #Add the product-warehouse allignment by GA to the product table
   Prod <- cbind(Prod,sol)
@@ -59,7 +178,12 @@ func <- function(sol){
   Cap$Group.1 <- as.factor(Cap$Group.1)
   
   #Apply Penalty if the capacity constrains are not met
-  Tot.Cost <- ifelse(Cap[Cap$Group.1=='1',2] > 25 || Cap[Cap$Group.1=='2',2] > 25 || Cap[Cap$Group.1=='3',2] > 25 || Cap[Cap$Group.1=='4',2] > 55,Tot.Cost * 1000,Tot.Cost)
+  Tot.Cost <- ifelse(Cap[Cap$Group.1=='1',2] > 25 || 
+                       Cap[Cap$Group.1=='2',2] > 25 || 
+                       Cap[Cap$Group.1=='3',2] > 25 || 
+                       Cap[Cap$Group.1=='4',2] > 55,
+                     Tot.Cost * 1000,
+                     Tot.Cost)
   #Return Value
   return(Tot.Cost)
 }
