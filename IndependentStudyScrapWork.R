@@ -16,6 +16,7 @@ library(GA)
 library(genalg)
 
 
+
 #############################
 ### ### ### ### ### ### Okay so how do I do this...
 
@@ -89,6 +90,10 @@ Patch_Act <- cbind(r2d2, mat01)
 Patch_Act <- rownames_to_column(Patch_Act, "Patch_ID")
 colnames(Patch_Act) <- c("Patch_ID", "Size"  ,     "Action_Zzz"     ,   "Action_Graze"  ,      "Action_timMang"   ,     "Action_Burn"  )
 
+
+################################################################################################################
+################################################################################################################
+### ### ### ### ### ### GAs
 
 
 #########
@@ -225,7 +230,7 @@ Patch_Actions$grazing_birds_count  <- Action_Bird_Mod_Graze(Patch_Actions$Size)
 
 
 
-Patch_Actions <- Patch_Actions %>% mutate(Bird_Count_w_Actions = TimM_bird_count + burn_birds_count + grazing_birds_count)
+Patch_Actions <- Patch_Actions %>% mutate(Bird_Count_w_Actions = TimM_bird_count + burn_birds_count + grazing_birds_count + (V7*Action_Zzz))
 
 
 ### Notes
@@ -272,7 +277,7 @@ evalFunc <- function(x) {
 
 ### trying from a different example... 
 
-Gems <- Patch_Actions %>% select(Patch_ID, Bird_Count_w_Actions, act_cat)
+Gems <- Patch_Actions %>% dplyr::select(Patch_ID, Bird_Count_w_Actions, act_cat)
 
 ### Creating a random chromosome to check function with... 
 Gems$ran=sample(8,nrow(Gems),T)
@@ -335,8 +340,122 @@ Sol_Gems$solution <- t(ga_best_solution)
 
 
 
+################################################################################################################
+################################################################################################################
+### ### ### ### ### ### SA
 
 
+
+
+### So let's use the same funciton as before but remove the control for the number of patches (SA will minimize..)
+
+fun_tryme <- function(x){
+  value = x*Gems[,2]
+  total_value_of_chromosome = sum(value)
+  
+  # controls value of actions (don't want all to be the same action )
+  action = sum(x*Gems[,3])
+  maxcount <- 15
+  if(action < maxcount)
+    return(0)
+  else
+    return(-1 * total_value_of_chromosome)
+}
+
+### !!! Need to figure out number of patches being selected 
+
+
+## How to test different solutions (swap them..?)
+swap <- function(v, i , j){
+  aux <- v[i]
+  v[i] <- v[j]
+  v[j] <- aux
+  return(v)
+}
+
+
+Gems$ran=sample(8,nrow(Gems),T)
+Gems[which(Gems$ran != 1),4] <- 0
+
+
+
+sa_circle <- function(inisol, iter=1000, T = 1e4, alpha = 0.9, p0 = 0.9, eval=FALSE){
+  
+  #setting up tracking of evolution if eval=TRUE
+  if(eval){
+    evalfit <- numeric()
+    evalbest <- numeric()
+    temp <- numeric()
+  }
+  
+  n <- length(inisol)
+  count <- 1
+  
+  #initialization of explored solution sol and best solution bestsol
+  #and objective funciton values fit  and bestfit
+  sol <- inisol
+  bestsol <- inisol
+  fit <- fun_tryme(sol) ## run through function to find mass center for that solution
+  bestfit <- fit
+  
+  
+  ## the simulated annealing loop
+  while(count < iter){
+    
+    #obtaining the testing solution x'
+    move <- sample(1:n, 2)
+    testsol <- swap(sol, move[1], move[2], move[3], move[4]) ## need to increase the number of times swaping things
+    testfit <- fun_tryme(testsol)
+    
+    #checking if we replace x by x'
+    if(exp(-(testfit-fit)/T) > runif(1)){
+      sol <- testsol
+      fit <- testfit
+    }
+    #updating the best solution
+    if(testfit <= bestfit){
+      bestsol <- testsol
+      bestfit <- testfit
+      count <- 1
+    }else{
+      count <- count + 1
+    }
+    
+    #keeping record of evolution of fit, bestfit and temperature if eval=TRUE
+    if(eval){
+      evalfit <- c(evalfit, fit)
+      evalbest <- c(evalbest, bestfit)
+      temp <- c(temp, T)
+    }
+    
+    T <- alpha*T
+    
+  }
+  #returning the solution
+  if(eval)
+    return(list(sol=bestsol, fit=bestfit, evalfit=evalfit, evalbest=evalbest, temp=temp))
+  else
+    return(list(sol=bestsol, fit=bestfit))
+}
+
+
+
+set.seed(1313)
+test <- sa_circle(Gems$ran, 
+                  iter = 200, 
+                  T = 1e4,
+                  alpha = 0.99, 
+                  p0 = 0.5, 
+                  eval = TRUE)
+
+controllist <- list(max.time=25, nb.stop.improvement = 100)
+
+fml <- GenSA(par = Gems$ran, fn = fun_tryme, control = controllist, lower = rep(0, 202), upper = rep(1, 202) )
+# for length - length(Gems$ran)
+
+gann <- ga(type = "binary", fitness = fun_tryme, popSize = 200, maxiter = 1000, run = 250, 
+           suggestions = Gems$ran, ### providing initial solution so GA has somewhere to start
+           nBits = nrow(Gems), seed = 123)
 
 
 
