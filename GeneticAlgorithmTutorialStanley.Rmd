@@ -1,5 +1,5 @@
 ---
-title: "Genetic Algorithm"
+title: "Genetic Algorithms"
 author: "Annabelle Stanley"
 date: "3/18/2022"
 output: html_document
@@ -16,6 +16,13 @@ library(dplyr)
 library(tidyverse)
 library(GA)
 ```
+
+
+r markdown formating ref
+- https://fish497.github.io/website/lectures/week_07/lec_20_markdown_1.html
+- https://fish497.github.io/website/lectures/week_07/lec_21_markdown_2.html
+- https://fish497.github.io/website/lectures/week_07/intro_rmarkdown.html
+- https://bookdown.org/yihui/rmarkdown-cookbook/latex-output.html
 
 
 writing ref
@@ -44,18 +51,27 @@ Genetic Algorithms are a type of heuristic optimization methods based on Charles
 
 \section{A basic example}
 
-Let's say we are a local land trust that is trying to select which land parcels to buy. We really want all three herp species that we are interested in to be represented on the parcels we buy. Based on monitoring data, we have the following birds represented as present (= 1) or absent (= NA) on three different parcels of land.
-```{r}
+!!!! Note - this is basically the minimum set problem that marxan solves... 
+
+Let's say we are a local land trust that is trying to select which land parcels to buy. We really want all three herp species that we are interested in to be represented on the parcels we buy. Based on monitoring data, we have the following herps represented as present (= 1) or absent (= NA) on three different parcels of land.
+```{r, echo=FALSE}
 data = data.frame(Landscape = c("patch_a", "patch_b", "patch_c"),
                   Newt = c(1,NA,NA),
                   Salamander = c(1,1,NA),
                   Skink = c(NA,NA,1))
 
-kable(data)
-```
-In this case the optimum or best option would be to purchase patches a and c. So let's go ahead and work through this problem in a genetic algorithm. 
+kable(data, format = "html",
+      caption = "Table 1. Find the smallest number of sites that represents all species",
+      align = "cccr", escape = FALSE) %>%
+  kable_styling(bootstrap_options = "striped",
+                full_width = FALSE,
+                position = "left") %>% 
+  scroll_box(height = "300px", extra_css = "border-style: none;")
 
-So how do we do this? Well first let's identify what the possible solutions are (these are the chromosomes that the GA can pick from). There are *7* different possible chromosomes: 
+```
+In this case the optimum or best option would be to purchase patches **A** and **C**. So let's go ahead and work through this problem in a genetic algorithm. 
+
+So how do we do this? Well first let's identify what the possible solutions are (these are the chromosomes that the GA can pick from). There are **7** different possible chromosomes: 
 
 - (1,1,1) = (Patch A, Patch B, Patch C)
 - (1,1,0) = (Patch A, Patch B)
@@ -65,9 +81,11 @@ So how do we do this? Well first let's identify what the possible solutions are 
 - (0,1,0) = (Patch B)
 - (0,0,1) = (Patch C) 
 
+<br>
+
 In more complicated problems with bigger datasets, we won't be able to identify all the different solutions that the GA will identify. Instead, we will supply a fitness function to the GA so that it can work through different solutions and pick the best one. Let's go ahead and define our fitness function here and then see how it works. 
 
-For this problem, we want the number of patches that maximizes the number of herp species. So the simplest version of our fitness function would be: 
+For this problem, we want the smallest number of patches that maximizes the number of herp species. So the simplest version of our fitness function would be: 
 ```{r}
 fitFunc <- function(x) {
   current_n_patches = sum(x, na.rm = T) # No. patches in solution (x out of 3)
@@ -75,7 +93,7 @@ fitFunc <- function(x) {
   current_n_herps = sum(as.logical(colSums(chromosome_data, na.rm = T))) # How many herps do we have (x out of 3)
 }
 ```
-
+<br>
 But this doesn't insure that we get all three herps so we are going to add a constraint. Now in addition to maximizing the number of herps in a solution, we are going to penalize the algorithm if it doesn't give us all 3 herp species.
 ```{r}
 fitFunc <- function(x) {
@@ -89,11 +107,12 @@ fitFunc <- function(x) {
   return(current_n_patches)
 }
 ```
-
-So this should set us up nicely for the GA, but let's go through and test it with a couple of chromosomes/potential solutions... First we will look at Patch A & Patch B and then we will look at Patch A & Patch C. We already know that Patch A & Patch C is the best solution as well as the only solution that contains all 3 herps. So let's see what happens...
+<br>
+Let's go through and test it with a couple of chromosomes/potential solutions... First we will look at Patch A & Patch B and then we will look at Patch A & Patch C. We already know that Patch A & Patch C is the best solution as well as the only solution that contains all 3 herps. So let's see what happens...
 
 - (1,1,0) = (Patch A, Patch B)
 - (1,0,1) = (Patch A, Patch C)
+<br>
 ```{r}
 ## Set up solutions
 badsol <- c(1,1,0) #(1,1,0) = (Patch A, Patch B)
@@ -106,7 +125,7 @@ fitFunc(goodsol)
 ```
 Great, so we can see the fitness function is working! The number returned by the fitness function is the number of patches selected by the algorithm. We specified in the fitness function that if our criteria wasn't met that we shouldn't select any patches and that is why we are seeing a 0 returned. For our "good solution" we get 2 because there are two patches in that solution. Now let's go ahead and create a bigger dataset to run the genetic algorithm on. (If we run the genetic algorithm on this current dataset, it will be too small and struggle to converge... GAs weren't created to find the solution of really simple problems like this one but if we expand the problem then it will get interesting!).
 
-```{r}
+```{r, echo=FALSE}
 mat <- matrix(NA, nrow = 75, ncol = 2) #create an empty matrix with 75 patches and then 9 species
 # converting matrix to data frame
 data_frame <- data.frame(mat)
@@ -123,11 +142,22 @@ Herps <- cbind(data_frame$patchID, mat01)
 colnames(Herps) <- c("patchID", "species1", "species2", "species3", "species4", "species5", "species6", "species7", "species8", "species9")
 Herps <- as.data.frame(Herps)
 Herps[,c(2:10)] <- sapply(Herps[ ,c(2:10)], as.numeric)
-head(Herps)
+
+data <- Herps
+
+
+kable(head(Herps), format = "html",
+      align = "cccccccccc", escape = FALSE) %>%
+  kable_styling(bootstrap_options = "striped",
+                full_width = FALSE,
+                position = "left") %>% 
+  scroll_box(height = "300px", extra_css = "border-style: none;")
+
 ```
 
 
 So for the new dataframe, we have to adjust the fitness function so that we penalize it if we don't have all 9 species
+We also need to account for the fact that we want to minimize the number of patches. Genetic Algorithms are algorithms designed to search for the global maximum but we want to find the local minimum. This is a simple enough fix but it means that we need to edit our fitness function: Now we are returning -1 * the number of patches (so the more patches the algorithm includes, the bigger the negative). We also change the penalty function to 1000 that if that combination of patches is selected then we will get a pretty big number * -1 which the GA won't want to select. 
 ```{r}
 fitFunc <- function(x) {
   ### Maximize number of herps
@@ -136,18 +166,14 @@ fitFunc <- function(x) {
   current_n_herps = sum(as.logical(colSums(chromosome_data, na.rm = T))) # How many herps do we have (x out of 9)
   
   ### If we don't have all 9 species, penalize! 
-  current_n_patches <- if_else(current_n_herps < 9, 0, current_n_patches)
-  return(current_n_patches)
+  current_n_patches <- if_else(current_n_herps < 9, 1000, current_n_patches)
+  return(-1 * current_n_patches)
 }
 
 ```
 
-
-!!!! Having issues here where want to negate fitness function but not sure how to do it... 
+So now we are all set to put this through the Genetic Algorithm. We'll use [cite package here..]
 ```{r}
-data <- Herps
-
-
 GA=ga(type='binary', ## For this problem, parcels are either in or out of the solution so we set type to binary
       fitness= fitFunc, ## This is just defining the fitness funciton that we created earlier 
       nBits=nrow(data), ##  
@@ -164,12 +190,38 @@ df_sol <- data[GA@solution[1, ] == 1, ]
 ga_best_solution = GA@solution 
 
 GA@fitnessValue
+
 ```
 
+Filer text here... 
+
+```{r, echo=FALSE}
+
+Sol_Herps <- data
+Sol_Herps$Site_Richness <- rowSums(Sol_Herps[,c(2:10)])
+Sol_Herps[,c(12:15)] <- t(ga_best_solution)
+
+Sol1 <- Sol_Herps[which(Sol_Herps$V12 == 1),] 
+Sol2 <- Sol_Herps[which(Sol_Herps$V13 == 1),] 
+Sol3 <- Sol_Herps[which(Sol_Herps$V14 == 1),] 
+Sol4 <- Sol_Herps[which(Sol_Herps$V15 == 1),] 
+
+Solutions <- as.data.frame(cbind(Sol1[,1], Sol2[,1], Sol3[,1], Sol4[,1]))
+names(Solutions) <- c("Solution 1","Solution 2", "Solution 3", "Solution 4")
+
+kable(Solutions, format = "html",
+      align = "cccc", escape = FALSE) %>%
+  kable_styling(bootstrap_options = "striped",
+                full_width = FALSE,
+                position = "left") %>% 
+  scroll_box(height = "300px", extra_css = "border-style: none;")
+
+```
+
+Need to find a way to account for the fact that this example is stochastic so everytime I write it up, my answer will be slightly different.. 
 
 
 
-New example... 
 
 
 
