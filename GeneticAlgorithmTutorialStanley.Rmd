@@ -2,14 +2,13 @@
 title: "Genetic Algorithms"
 author: "Annabelle Stanley"
 date: "3/18/2022"
-output: html_document
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_chunk$set(fig.width = 8, collapse = TRUE)
-knitr::opts_chunk$set(tidy.opts=list(width.cutoff=70),tidy=TRUE)
-
 library(kableExtra)
 library(stringr)
 library(dplyr)
@@ -34,33 +33,91 @@ writing ref
 Overview/intro section here... 
 
 Objectives of independent study
--	demonstrate genetic algorithm and simulated annealing functions in R to solve simple problems
--	Demonstrate how each could be on landscape with simple fitness function
--	Sprinkle in stochasticity 
+-	 demonstrate genetic algorithm and simulated annealing functions in R to solve simple problems
+-	 Demonstrate how each could be on landscape with simple fitness function
+-	 Sprinkle in stochasticity 
 
 
 
 
-\section{Getting Started}
+\section{Getting Started with optimization}
 
-oh boy 
+Metaheuristics (Heuristics for short) are used to create an optimized search of a solution space which likely has multiple local minima/maxima (or *multimodal*). While heuristics don't guarantee that you will find an optimal solution, they can be applied to many problems. 
+
+Multimodal example: ![](OutsideImages/MultiModalOptFig.png)
+
+There are three main components of heuristic algorithms and the design of these can have a major impact on how efficient the algorithm is: 
+
+1.  Initial solution – Usually the closer the initial guess is to the optimal solution, the faster the algorithm will reach the best solution
+2.  Neighborhood size – The advantage of a large neighborhood is that you are more likely to find a better next value for your solution than with a small neighborhood and less likely to get caught in a local minimum. The disadvantage is that you may have to value the cost (y -axis) many times and this may be computationally demanding
+3.  Improvement algorithm – The nature of the improvement algorithm determines the type of heuristic algorithm being used. (this is also called the fitness function but more on that later) 
+
+The other important difference in heuristics is deterministic vs stochastic. If a heuristic is deterministic, when you repeat the algorithm with the same values, you will always get the same solution. But stochastic heuristics include a random element either in the improve algorithm or in the neighborhood generation (which makes it more likely to converge). 
+
 
 \section{What are Genetic Algorithms}
 
-Genetic Algorithms are a type of heuristic optimization methods based on Charles Darwin's ideas on natural selection. 
+Genetic Algorithms (GAs) are a type of heuristic optimization methods based on Charles Darwin's ideas on natural selection where only the fittest individuals survive and reproduce over generations. GAs work by combining different solutions (or individuals) for a specified number of generations and extracting the best genes from each iteration. 
+
+The basic structure of a GA is as follows: 
+1.  Randomly generate an initial population 
+2.  Create a fitness function which is used to determine the best solution 
+3.  In each sequential population, generate children from two members of the previous population by applying __crossover__ and __mutation__ (more on this below)
+4.  The population of children becomes a population of parents and we return to step 2 (unless a stopping criteria has been satisfied) to identify the fitness of each child
+
+The solutions are the fittest individuals or chromosome 
+<br>
+<img src="OutsideImages/GA_Genes_Xsomes_popn.jpg" width="300" height="200" />
+
+<br>
+
+GA process figure... 
+<br>
+<img src="https://rocreguant.com/wp-content/uploads/2021/01/genetic-algorithm-steps.jpg" width="375" height="425" />
+
+
+Two of these components are common across all heuristics (the initialization is the same as the initial population and the fitness assessment is the same as as the improvement algorithm). The three new components specific to GAs are selection, crossover and mutation. 
+
+- Selection: 
+    - Choose the fittest individuals and let them pass their genes to the next generation
+    - This is based off an individual's fitness score so a higher fitness means that there is a higher chance of being selected to reproduce
+
+- Cross-over
+    - For each pair of partnes to be mated, a cross ofer point is chosen at random from within the genes
+    - Offspring agre crated by exchanging the genes of parents amount themselves until the crossover point is reached
+
+&nbsp;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;  A1: `0 0 0 | 0 0 0`    <br>
+&nbsp;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; A2: `1 1 1 | 1 1 1 `    <br>
+&nbsp;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;&nbsp;     `|` *= cross-over point* <br>
+<br>
+&nbsp;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; A3: `1 1 1 | 0 0 0`    <br>
+&nbsp;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;  A4: `0 0 0 | 1 1 1 `   <br>
+<br>
+
+- Mutation 
+    - When some offspring form, some of their genes can be subjected to a mutation (this happens with a low random probability). The result is that parts of the string can be flipped  <br>
+    For example - A3: `1 1 0 1 1 0`    <br>
+    - This occurs to prevent premature convergence 
+
+Lets take a look at an example to show how this works.. 
+
+<br>
+<br>
+<br>
+need to format sections better... 
+<br>
+<br>
 
 \section{A basic example}
 
-!!!! Note - this is basically the minimum set problem that marxan solves... 
-
 Let's say we are a local land trust that is trying to select which land parcels to buy. We really want all three herp species that we are interested in to be represented on the parcels we buy. Based on monitoring data, we have the following herps represented as present (= 1) or absent (= NA) on three different parcels of land.
 ```{r, echo=FALSE}
-data = data.frame(Landscape = c("patch_a", "patch_b", "patch_c"),
+data = data.frame(Landscape = c("patchA", "patchB", "patchC"),
                   Newt = c(1,NA,NA),
                   Salamander = c(1,1,NA),
                   Skink = c(NA,NA,1))
 
-kable(data, format = "html",
+kable(data, 
       caption = "Table 1. Find the smallest number of sites that represents all species",
       align = "cccr", escape = FALSE) %>%
   kable_styling(bootstrap_options = "striped",
@@ -77,15 +134,15 @@ So how do we do this? Well first let's identify what the possible solutions are 
 - (1,1,0) = (Patch A, Patch B)
 - (1,0,1) = (Patch A, Patch C)
 - (0,1,1) = (Patch B, Patch C)
-- (1,0,0) = (Patch A)
-- (0,1,0) = (Patch B)
-- (0,0,1) = (Patch C) 
+- (1,0,0) = (Patch A only)
+- (0,1,0) = (Patch B only)
+- (0,0,1) = (Patch C only) 
 
 <br>
 
-In more complicated problems with bigger datasets, we won't be able to identify all the different solutions that the GA will identify. Instead, we will supply a fitness function to the GA so that it can work through different solutions and pick the best one. Let's go ahead and define our fitness function here and then see how it works. 
+In more complicated problems with bigger datasets, we won't be able to come up with all the different solutions that the GA could identify. Instead, we will supply a fitness function to the GA so that it can work through different solutions and pick the best one. Let's go ahead and define our fitness function here and then see how it works. 
 
-For this problem, we want the smallest number of patches that maximizes the number of herp species. So the simplest version of our fitness function would be: 
+For this problem, we want the smallest number of patches that maximizes the number of herp species. So the simplest version of our fitness function would be to find how many patches are in a given solution and then count how many herps we have in that solution. In code that would be: 
 ```{r}
 fitFunc <- function(x) {
   current_n_patches = sum(x, na.rm = T) # No. patches in solution (x out of 3)
@@ -94,7 +151,7 @@ fitFunc <- function(x) {
 }
 ```
 <br>
-But this doesn't insure that we get all three herps so we are going to add a constraint. Now in addition to maximizing the number of herps in a solution, we are going to penalize the algorithm if it doesn't give us all 3 herp species.
+But this doesn't insure that we get all three herps so we are going to add a constraint. Now in addition to maximizing the number of herps in a solution, we are going to penalize the algorithm if it doesn't give us all 3 herp species. So we stick with counting the number of patches and herps are in a given solution, but we also tell the GA that if we don't have all 3 herps, then we are going to set that solution to 0. This means that the GA will recognize it has low fitness (is a bad solution) and won't select it. 
 ```{r}
 fitFunc <- function(x) {
   ### Maximize number of herps
@@ -108,24 +165,29 @@ fitFunc <- function(x) {
 }
 ```
 <br>
-Let's go through and test it with a couple of chromosomes/potential solutions... First we will look at Patch A & Patch B and then we will look at Patch A & Patch C. We already know that Patch A & Patch C is the best solution as well as the only solution that contains all 3 herps. So let's see what happens...
+
+Let's go through and test this fitness function with a couple of chromosomes/potential solutions... First we will look at Patch A & Patch B and then we will look at Patch A & Patch C. We already know that Patch A & Patch C is the best solution as well as the only solution that contains all 3 herps. So let's see what happens...
 
 - (1,1,0) = (Patch A, Patch B)
 - (1,0,1) = (Patch A, Patch C)
 <br>
 ```{r}
 ## Set up solutions
-badsol <- c(1,1,0) #(1,1,0) = (Patch A, Patch B)
-goodsol <- c(1,0,1) #(1,0,1) = (Patch A, Patch C)
+badsol <- c(1,1,0) #(Patch A, Patch B)
+goodsol <- c(1,0,1) #(Patch A, Patch C)
 
 ## Run possible solutions through the fitness function
 fitFunc(badsol)
 fitFunc(goodsol)
 
 ```
-Great, so we can see the fitness function is working! The number returned by the fitness function is the number of patches selected by the algorithm. We specified in the fitness function that if our criteria wasn't met that we shouldn't select any patches and that is why we are seeing a 0 returned. For our "good solution" we get 2 because there are two patches in that solution. Now let's go ahead and create a bigger dataset to run the genetic algorithm on. (If we run the genetic algorithm on this current dataset, it will be too small and struggle to converge... GAs weren't created to find the solution of really simple problems like this one but if we expand the problem then it will get interesting!).
 
-```{r, echo=FALSE}
+Notice here, that we are running a chromosome that indicates wether a solution is in or out through the fitness function. And great we can see the fitness function is working! The number returned by the fitness function is the number of patches selected by the algorithm. We specified in the fitness function that if our criteria wasn't met that we shouldn't select any patches and that is why we are seeing a 0 returned. For our "good solution" we get 2 because there are two patches in that solution. Now let's go ahead and create a bigger dataset to run the genetic algorithm on. (If we run the genetic algorithm on this current dataset, it will be too small and struggle to converge... GAs weren't created to find the solution of really simple problems like this one but if we expand the problem then it will get interesting!).
+
+So I've created a dataframe that has 75 different patches and 9 different herpetology species inside it. Again, each patch as a random number of species in it and we want to find the smallest number of patches that will cover all 9 species. 
+
+!!!!! This chunk isn't knitting anymore for some reason!! UGHHHH
+```{r}
 mat <- matrix(NA, nrow = 75, ncol = 2) #create an empty matrix with 75 patches and then 9 species
 # converting matrix to data frame
 data_frame <- data.frame(mat)
@@ -146,7 +208,7 @@ Herps[,c(2:10)] <- sapply(Herps[ ,c(2:10)], as.numeric)
 data <- Herps
 
 
-kable(head(Herps), format = "html",
+kable(head(Herps), 
       align = "cccccccccc", escape = FALSE) %>%
   kable_styling(bootstrap_options = "striped",
                 full_width = FALSE,
@@ -156,9 +218,9 @@ kable(head(Herps), format = "html",
 ```
 
 
-So for the new dataframe, we have to adjust the fitness function so that we penalize it if we don't have all 9 species
-We also need to account for the fact that we want to minimize the number of patches. Genetic Algorithms are algorithms designed to search for the global maximum but we want to find the local minimum. This is a simple enough fix but it means that we need to edit our fitness function: Now we are returning -1 * the number of patches (so the more patches the algorithm includes, the bigger the negative). We also change the penalty function to 1000 that if that combination of patches is selected then we will get a pretty big number * -1 which the GA won't want to select. 
-```{r}
+For the new dataframe, we have to adjust the fitness function so that we penalize it if we don't have all 9 species. 
+We also need to account for the fact that we want to minimize the number of patches. Genetic Algorithms are algorithms designed to search for the global maximum but we want to find the local minimum. This is a simple enough fix - we just multiple the number of patches being returned by -1 so the more patches that are returned, the lower the fitness of that solution because the solution will have a bigger negative). We also change the penalty function, whereas before we had it set to 0 now we want to set it to 1000 so that if that combination of patches is selected then we will get a pretty big number x -1 which the GA won't want to select. 
+```{r, eval = FALSE}
 fitFunc <- function(x) {
   ### Maximize number of herps
   current_n_patches = sum(x, na.rm = T) # No. patches in solution (x out of 75)
@@ -172,30 +234,25 @@ fitFunc <- function(x) {
 
 ```
 
-So now we are all set to put this through the Genetic Algorithm. We'll use [cite package here..]
-```{r}
+So now we are all set to put this through the GA. We'll use the Genetic Algorithm package writen by Luca Scrucca. The vignette can be found [here](http://127.0.0.1:45056/help/library/GA/doc/index.html). There are a couple of important parameters to set inside this package: 
+```{r, eval = FALSE}
 GA=ga(type='binary', ## For this problem, parcels are either in or out of the solution so we set type to binary
       fitness= fitFunc, ## This is just defining the fitness funciton that we created earlier 
       nBits=nrow(data), ##  
       maxiter=300, ## Maximum number of times to run the GA before it stops 
       popSize=30, ## this is the number of chromosomes that will be generated
-      keepBest=TRUE)
+      keepBest=TRUE) ## Normally we discard the old population so if you find a solution that is very good, then it's lost. But we can modify this by picking the elite of a current generation
 
 summary(GA)
-plot(GA)
 
+```
+In addition to telling us what parameters were used in the actal model, the `summary` also tells us the results from this model. The fitness value of -3 is the smallest number of parcels that are needed to cover all 9 species (our fitness function was multiplying the number of patches returned by -1 which is why it is negative). We can see which patches were selected in binary form but this isn't very helpful so let's pull that information into a table. 
+
+```{r, echo=FALSE, eval = FALSE}
 
 df_sol <- data[GA@solution[1, ] == 1, ]
 
 ga_best_solution = GA@solution 
-
-GA@fitnessValue
-
-```
-
-Filer text here... 
-
-```{r, echo=FALSE}
 
 Sol_Herps <- data
 Sol_Herps$Site_Richness <- rowSums(Sol_Herps[,c(2:10)])
@@ -209,7 +266,7 @@ Sol4 <- Sol_Herps[which(Sol_Herps$V15 == 1),]
 Solutions <- as.data.frame(cbind(Sol1[,1], Sol2[,1], Sol3[,1], Sol4[,1]))
 names(Solutions) <- c("Solution 1","Solution 2", "Solution 3", "Solution 4")
 
-kable(Solutions, format = "html",
+kable(Solutions, 
       align = "cccc", escape = FALSE) %>%
   kable_styling(bootstrap_options = "striped",
                 full_width = FALSE,
@@ -220,8 +277,21 @@ kable(Solutions, format = "html",
 
 Need to find a way to account for the fact that this example is stochastic so everytime I write it up, my answer will be slightly different.. 
 
+We can also generate a plot of what the GA does over generations. It's pretty important that we see the algorithm plauto and find a solution. If the graph is still growing, then odds are good that the GA hasn't converged on the optimum solution yet and you need to increase the number of generations `maxiters`
+```{r, echo=FALSE, eval = FALSE}
+plot(GA)
+```
 
 
 
+!!!! Note - this is basically the minimum set problem that marxan solves... 
+
+Marxan: <img src="https://tse2.mm.bing.net/th?id=OIP.9CwGYuYjHds3YijYSPz3xwAAAA&pid=Api" width="100" height="100" />
+
+
+
+
+
+References: 
 
 
