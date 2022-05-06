@@ -253,7 +253,7 @@ Patch_Actions <- Patch_Actions %>%
                              Action_Burn == 1 ~ 1))
 
 ## So the columns we want to focus on in GA are.. 
-Patch_Actions_Prep <- Patch_Actions %>% select(Bird_Count_w_Actions, act_cat)
+Patch_Actions_Prep <- Patch_Actions %>% dplyr::select(Bird_Count_w_Actions, act_cat)
 
 
 ### ###
@@ -352,7 +352,7 @@ Sol_Gems$solution <- t(ga_best_solution)
 fun_tryme <- function(x){
   value = x*Gems[,2]
   total_value_of_chromosome = sum(value)
-  
+
   # controls value of actions (don't want all to be the same action )
   action = sum(x*Gems[,3])
   maxcount <- 15
@@ -362,14 +362,14 @@ fun_tryme <- function(x){
     return(-1 * total_value_of_chromosome)
 }
 
-### !!! Need to figure out number of patches being selected 
-
 
 ## How to test different solutions (swap them..?)
-swap <- function(v, i , j){
+swap <- function(v, i , j, k, l){
   aux <- v[i]
   v[i] <- v[j]
-  v[j] <- aux
+  v[i] <- v[k]
+  v[k] <- v[l]
+  v[l] <- aux
   return(v)
 }
 
@@ -379,7 +379,7 @@ Gems[which(Gems$ran != 1),4] <- 0
 
 
 
-sa_circle <- function(inisol, iter=1000, T = 1e4, alpha = 0.9, p0 = 0.9, eval=FALSE){
+sa_circle <- function(inisol, iter=1000, T = 1e4, alpha = 0.9, p0 = 0.9, eval=TRUE){
   
   #setting up tracking of evolution if eval=TRUE
   if(eval){
@@ -403,7 +403,7 @@ sa_circle <- function(inisol, iter=1000, T = 1e4, alpha = 0.9, p0 = 0.9, eval=FA
   while(count < iter){
     
     #obtaining the testing solution x'
-    move <- sample(1:n, 2)
+    move <- sample(1:n, 4)
     testsol <- swap(sol, move[1], move[2], move[3], move[4]) ## need to increase the number of times swaping things
     testfit <- fun_tryme(testsol)
     
@@ -442,24 +442,115 @@ sa_circle <- function(inisol, iter=1000, T = 1e4, alpha = 0.9, p0 = 0.9, eval=FA
 
 set.seed(1313)
 test <- sa_circle(Gems$ran, 
-                  iter = 200, 
+                  iter = 250, 
                   T = 1e4,
                   alpha = 0.99, 
                   p0 = 0.5, 
                   eval = TRUE)
 
-controllist <- list(max.time=25, nb.stop.improvement = 100)
 
-fml <- GenSA(par = Gems$ran, fn = fun_tryme, control = controllist, lower = rep(0, 202), upper = rep(1, 202) )
+### Number of patches being selected 
+sum(test$sol)
+
+
+dftest <- test
+dftest2 <- within(dftest, rm(sol,fit)) # removing 2 elements of list so can pull the rest of list into df
+
+
+df <- as.data.frame( t(data.frame(matrix(unlist(dftest2), nrow=length(dftest2), byrow=TRUE))) )
+colnames(df) <- c("evalfit",  "evalbest" , "temp"    )
+df$step <- seq(1,252)
+
+
+#create plot with two lines
+ggplot(df, aes(x = step)) + 
+  geom_line(aes(y = evalfit, color = 'red')) + 
+  geom_line(aes(y = evalbest, color = 'blue')) +
+  labs(x = 'Step', y = 'Number of Birds')
+
+
+
+
+#######################################################################################
+
+
+## Trying to get GenSA to work... 
+
+
+fun_tryme <- function(x){
+  value = x*Gems[,2]
+  total_value_of_chromosome = sum(value)
+  
+  # controls value of actions (don't want all to be the same action )
+  action = sum(x*Gems[,3])
+  maxcount <- 15
+  if(action < maxcount)
+    return(0)
+  else
+    return(-1 * total_value_of_chromosome)
+}
+
+
+controllist <- list(max.time=25, nb.stop.improvement = 50)
+
+fml <- GenSA(par = Gems$ran, 
+             fn = fun_tryme, 
+             control = controllist, 
+             lower = rep(0, 101), 
+             upper = rep(1, 101) )
 # for length - length(Gems$ran)
 
-gann <- ga(type = "binary", fitness = fun_tryme, popSize = 200, maxiter = 1000, run = 250, 
-           suggestions = Gems$ran, ### providing initial solution so GA has somewhere to start
-           nBits = nrow(Gems), seed = 123)
+
+fmldat <- as.data.frame(fml$trace.mat)
+ggplot(fmldat, aes(x = nb.steps)) + 
+  geom_line(aes(y = function.value, color = 'red')) + 
+  geom_line(aes(y = current.minimum, color = 'blue')) +
+  labs(x = 'Step', y = 'Number of Birds')
 
 
 
+######################################################################################################
 
+
+fun_tryme <- function(x){
+  value = x*Gems[,2]
+  total_value_of_chromosome = sum(value)
+  
+  # Control the number of patches selected 
+  No_patches <- 34
+  no_patch_selected <- sum(x)
+  total_value_of_chromosome <- if_else(no_patch_selected > No_patches, -1000, total_value_of_chromosome)
+
+  # controls value of actions (don't want all to be the same action )
+  action = sum(x*Gems[,3])
+  maxcount <- 15
+  if(action < maxcount)
+    return(0)
+  else
+    return(-1 * total_value_of_chromosome)
+}
+
+fml2 <- GenSA(par = Gems$ran, 
+             fn = fun_tryme, 
+             control = controllist, 
+             lower = rep(0, 101), 
+             upper = rep(1, 101) )
+
+
+fmldat2 <- as.data.frame(fml2$trace.mat)
+ggplot(fmldat2, aes(x = nb.steps)) + 
+  geom_line(aes(y = function.value, color = 'red')) + 
+  geom_line(aes(y = current.minimum, color = 'blue')) +
+  labs(x = 'Step', y = 'Number of Birds')
+
+
+fml2_sol <- fml2$par
+
+holder <- Gems
+
+holder$sol <- fml2_sol
+holder <- holder %>% mutate(testme =Bird_Count_w_Actions*sol)
+### UGH this doesn't work - it isn't treating the patches like binary options.... 
 
 
 ################################################################################################################
