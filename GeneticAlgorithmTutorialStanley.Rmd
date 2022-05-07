@@ -5,6 +5,12 @@ date: "3/18/2022"
 output:
   html_document:
     df_print: paged
+    theme: readable
+    highlight: textmate
+    toc: true
+    toc_float: true
+    toc_depth: 3
+  word_document: default
   pdf_document: default
 ---
 
@@ -24,30 +30,23 @@ library(here)
 ```
 
 
-r markdown formating ref
-- https://fish497.github.io/website/lectures/week_07/lec_20_markdown_1.html
-- https://fish497.github.io/website/lectures/week_07/lec_21_markdown_2.html
-- https://fish497.github.io/website/lectures/week_07/intro_rmarkdown.html
-- https://bookdown.org/yihui/rmarkdown-cookbook/latex-output.html
-
-
-writing ref
-- https://optimization.cbe.cornell.edu/index.php?title=Heuristic_algorithms
-- https://www.r-bloggers.com/2012/07/a-comparison-of-some-heuristic-optimization-methods/
 
 \tableofcontents
 
-Overview/intro section here... 
+### Introduction
 
-Objectives of independent study
--	 demonstrate genetic algorithm and simulated annealing functions in R to solve simple problems
--	 Demonstrate how each could be on landscape with simple fitness function
--	 Sprinkle in stochasticity 
+This tutorial was completed as part of an independent study I did with Dr. Clint Moore at the University of Georgia. My objectives were to: 
+- demonstrate genetic algorithm and simulated annealing functions in R to solve simple problems
+- Demonstrate how each could be on landscape with simple fitness function
+- Sprinkle in stochasticity 
 
+I start with an introduction on optimization, use a basic example to introduce Genetic Algorithms and then a slightly more complicated example for Genetic Algorithm. This same example is used to show how Simulated Annealing works. In working through this independent study, I scoured the internet for other tutorials that worked through these problems in the R language. The ones that were referenced to put together this tutorial are listed at the end of the document and there are a number of others in the "GATutorialWorkspace.R" script located on my [Github page](https://github.com/aestanley49/OptPrivateLandCons). 
 
+<br> 
 
+\section{Getting started with optimization}
 
-\section{Getting Started with optimization}
+#### Getting started with optimization
 
 Metaheuristics (Heuristics for short) are used to create an optimized search of a solution space which likely has multiple local minima/maxima (or *multimodal*). While heuristics don't guarantee that you will find an optimal solution, they can be applied to many problems. 
 
@@ -63,6 +62,8 @@ The other important difference in heuristics is deterministic vs stochastic. If 
 
 
 \section{What are Genetic Algorithms}
+
+#### What are Genetic Algorithms
 
 Genetic Algorithms (GAs) are a type of heuristic optimization methods based on Charles Darwin's ideas on natural selection where only the fittest individuals survive and reproduce over generations. GAs work by combining different solutions (or individuals) for a specified number of generations and extracting the best genes from each iteration. 
 
@@ -95,7 +96,7 @@ Two of these components are common across all heuristics (the initialization is 
 
 &nbsp;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;  A1: `0 0 0 | 0 0 0`    <br>
 &nbsp;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; A2: `1 1 1 | 1 1 1 `    <br>
-&nbsp;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;&nbsp;     `|` *= cross-over point* <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;&nbsp;     `|` *= cross-over point* <br>
 <br>
 &nbsp;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; A3: `1 1 1 | 0 0 0`    <br>
 &nbsp;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;  A4: `0 0 0 | 1 1 1 `   <br>
@@ -111,13 +112,12 @@ Lets take a look at an example to show how this works..
 <br>
 <br>
 <br>
-need to format sections better... 
-<br>
-<br>
 
 \section{A basic example}
 
-### Genetic Algorithm example: Herpotology 101
+### GA example: Herpotology 101
+
+#### A basic example
 
 Let's say we are a local land trust that is trying to select which land parcels to buy. We really want all three herp species that we are interested in to be represented on the parcels we buy. Based on monitoring data, we have the following herps represented as present (= 1) or absent (= NA) on three different parcels of land.
 ```{r, echo=FALSE}
@@ -135,7 +135,7 @@ kable(data,
   scroll_box(height = "300px", extra_css = "border-style: none;")
 
 ```
-In this case the optimum or best option would be to purchase patches **A** and **C**. So let's go ahead and work through this problem in a genetic algorithm. 
+In this case the best option would be to purchase patches **A** and **C**. So let's go ahead and work through this problem in a genetic algorithm. 
 
 So how do we do this? Well first let's identify what the possible solutions are (these are the chromosomes that the GA can pick from). There are **7** different possible chromosomes: 
 
@@ -149,7 +149,7 @@ So how do we do this? Well first let's identify what the possible solutions are 
 
 <br>
 
-!!!!! Not sure the first sentence here is correct - check with clint... !!!!!
+#### Fitness Functions
 
 In more complicated problems with bigger datasets, we won't be able to come up with all the different solutions that the GA could identify. Instead, we will supply a fitness function to the GA so that it can work through different solutions and pick the best one. Let's go ahead and define our fitness function here and then see how it works. 
 
@@ -163,6 +163,24 @@ fitFunc <- function(x) {
 ```
 <br>
 But this doesn't insure that we get all three herps so we are going to add a constraint. Now in addition to maximizing the number of herps in a solution, we are going to penalize the algorithm if it doesn't give us all 3 herp species. So we stick with counting the number of patches and herps are in a given solution, but we also tell the GA that if we don't have all 3 herps, then we are going to set that solution to 0. This means that the GA will recognize it has low fitness (is a bad solution) and won't select it. 
+ 
+```{r}
+fitFunc <- function(x) {
+  ### Maximize number of herps
+  current_n_patches = sum(x, na.rm = T) # No. patches in solution (x out of 3)
+  chromosome_data = data[as.logical(x), c(-1)]
+  current_n_herps = sum(as.logical(colSums(chromosome_data, na.rm = T))) # How many herps do we have (x out of 3)
+  
+  ### If we don't have all 3 species, penalize! 
+  current_n_patches <- if_else(current_n_herps < 3, 0, (current_n_patches))
+  return(current_n_patches)
+}
+```
+<br>
+
+The other thing we are going to add here, is a minimization component. GAs try and find the global maximum - in other words they are trying to find the largest number of something. We aren't interested in the maximum number of patches needed to solve this problem. To make a GA return the smallest number of patches, we need to multiple the number of patches in a solution by -1 so the more patches that are returned, the lower the fitness of that solution because the solution will have a bigger negative). We also change the penalty function, whereas before we had it set to 0 now we want to set it to -1000 so that if that combination of patches is selected then we will get a pretty big number which the GA definitely won't want to select. 
+
+
 ```{r}
 fitFunc <- function(x) {
   ### Maximize number of herps
@@ -175,7 +193,9 @@ fitFunc <- function(x) {
   return(current_n_patches)
 }
 ```
-<br>
+
+<br> 
+
 
 Let's go through and test this fitness function with a couple of chromosomes/potential solutions... First we will look at Patch A & Patch B and then we will look at Patch A & Patch C. We already know that Patch A & Patch C is the best solution as well as the only solution that contains all 3 herps. So let's see what happens...
 
@@ -194,27 +214,14 @@ fitFunc(goodsol)
 ```
 
 
-
-```{r}
-
-GA=ga(type='binary',
-      fitness=fitFunc,
-      nBits=nrow(data),
-      maxiter=30,
-      popSize=50,
-      seed=100,
-      keepBest=TRUE)
-
-plot(GA)
-
-summary(GA)
-```
+Note that we are running a chromosome that indicates whether a solution is in or out through the fitness function. And great we can see the fitness function is working! The number returned by the fitness function is the number of patches selected by the algorithm. We specified in the fitness function that if our criteria wasn't met that we shouldn't select any patches and that is why we are seeing a 0 returned. For our "good solution" we get 2 because there are two patches in that solution. 
 
 
 
-Note that we are running a chromosome that indicates wether a solution is in or out through the fitness function. And great we can see the fitness function is working! The number returned by the fitness function is the number of patches selected by the algorithm. We specified in the fitness function that if our criteria wasn't met that we shouldn't select any patches and that is why we are seeing a 0 returned. For our "good solution" we get 2 because there are two patches in that solution. Now let's go ahead and create a bigger dataset to run the genetic algorithm on. (If we run the genetic algorithm on this current dataset, it will be too small and struggle to converge... GAs weren't created to find the solution of really simple problems like this one but if we expand the problem then it will get interesting!).
 
-!!!! Again this last part might be a problem... !!!!! 
+#### A bigger version of the problem
+
+Now let's go ahead and create a bigger dataset to run the genetic algorithm on. (If we run the genetic algorithm on this current dataset, we will get the two parcels we expect but if we expand the problem then it will get more interesting!).
 
 So I've created a dataframe that has 75 different patches and 9 different herpetology species inside it. Again, each patch as a random number of species in it and we want to find the smallest number of patches that will cover all 9 species. 
 
@@ -251,9 +258,8 @@ kable(head(Herps),
 
 ```
 
+We use the same logic for the fitness function as before and the only change we are making is to penalize a solution if we don't have all 9 species (before we only had 3). 
 
-For the new dataframe, we have to adjust the fitness function so that we penalize it if we don't have all 9 species. 
-We also need to account for the fact that we want to minimize the number of patches. Genetic Algorithms are algorithms designed to search for the global maximum but we want to find the local minimum. This is a simple enough fix - we just multiple the number of patches being returned by -1 so the more patches that are returned, the lower the fitness of that solution because the solution will have a bigger negative). We also change the penalty function, whereas before we had it set to 0 now we want to set it to 1000 so that if that combination of patches is selected then we will get a pretty big number x -1 which the GA won't want to select. 
 ```{r}
 fitFunc <- function(x) {
   ### Maximize number of herps
@@ -280,7 +286,7 @@ GA=ga(type='binary', ## For this problem, parcels are either in or out of the so
 summary(GA)
 
 ```
-In addition to telling us what parameters were used in the actal model, the `summary` also tells us the results from this model. The fitness value of -3 is the smallest number of parcels that are needed to cover all 9 species . So only 3 parcels are needed. (Our fitness function was multiplying the number of patches returned by -1 which is why the value is returned as negative). We can see which patches were selected in binary form (present or absent in the solution) but this isn't very helpful so let's pull that information into a table. 
+In addition to telling us what parameters were used in the actual model, the `summary` also tells us the results from this model. The fitness value of -4 is the smallest number of parcels that are needed to cover all 9 species . So only 4 parcels are needed. (Our fitness function was multiplying the number of patches returned by -1 which is why the value is returned as negative). We can see which patches were selected in binary form (present or absent in the solution) but this isn't very helpful so let's pull that information into a table. 
 
 ```{r, echo=FALSE}
 
@@ -309,7 +315,7 @@ kable(Solutions,
 
 ```
 
-Now it's clear that the 3 patches were selected for both solutions but one solution chose patch 18 while the other chose patch 28. 
+Now it's clear that the 4 patches were selected for both solutions but one solution chose patch 18 while the other chose patch 28. 
 
 We can also generate a plot of what the GA does over generations. It's pretty important that we see the algorithm plauto and find a solution. If the graph is still growing, then odds are good that the GA hasn't converged on the optimum solution yet and you need to increase the number of generations `maxiters`
 <br>
@@ -322,9 +328,9 @@ If you go through and run the code here, it's possible that you will get a diffe
 Also, the problem we presented here is also known as the minimum set problem where the goal is to minimize the cost of the reserve system while ensuring that all constraints are met. This is the same problem that marxan <img src="https://tse2.mm.bing.net/th?id=OIP.9CwGYuYjHds3YijYSPz3xwAAAA&pid=Api" width="50" height="50" /> solves using Simulated Annealing (which we will talk about later) and spacally explicit data. 
 
 
-### Genetic Algorithm example 2: Habitat Acquisition for Bobwhites
+### GA example 2: Habitat Acquisition for Bobwhites
 
-Let's put the minimum set problem in a more complicated real world context. Unfortatnely that means that we will have to switch from talking about herps to talking about birds.. ah well. 
+Let's put the minimum set problem in a more complicated real world context. Unfortunately that means that we will have to switch from talking about herps to talking about birds.. ah well. 
 
 So in this new problem, you are still trying to pick different patches of habitat this time for a single species (a bird called the northern bobwhite). Now we want to add some additional elements of realism to this example. For starters, parcels can be different sizes, hold different population sizes and we can apply different actions to the the landscape to change habitat which will have (hopefully) have a (positive) effect on the population. 
 
@@ -387,9 +393,8 @@ head(Patch_Actions)
 ```
 
 
-Now we need to take into account the species' (birds') response. To start with, we can randomly generate bird abundance per patch. We also need to create 3 functions for our actions will impact the bird response (we are making the assumption that the "do nothing" action won't change the population that we started with so no function for that action). 
+Now we need to take into account the species' (birds') response. To start with, we can randomly generate bird abundance per patch. We then need to create 3 functions for our actions will impact the bird response (we are making the assumption that the "do nothing" action won't change the population that we started with so no function for that action). 
 
-!!! MORE on functions - is there a way to plot these or at least write out mathematical formulas???
 
 1) Let's assume that there is a linear relationship between timber management and bird response
 $$
@@ -398,19 +403,25 @@ $$
 Where
 $y$ is the bird response, $\beta_o$ is the intercept or the number of birds that we start with on a patch and $\beta_1$ is the proportional increase which is .4 in this case. 
 
-2) Bruning
-
-3) Grazing 
-First part of this - https://en.wikipedia.org/wiki/Step_function// https://en.wikipedia.org/wiki/Modulo_operation
-
-$g(x) = \sum_{i=0}^{n}A_i*\chi\alpha_i$ 
+2) Burning \\
+We chose a random number of cells within a patch to burn and flip a loaded coin to see if the outcome is good or bad. P(good) = .65
 
 \begin{equation}
-\chi\alpha_i=\begin{cases}
-          0 \quad &\text{if} \, x \in \mathbb{\alpha} \\
-          .5 \quad &\text{if} \, x \notin \mathbb{\alpha} \\
+Number of Birds=\begin{cases}
+          0 \quad &\text{if} \, \text{outcome is bad} \\
+          \text{Add 2*Number of cells} \quad &\text{if} \, \text{outcome is good} \\
      \end{cases}
 \end{equation}
+
+
+3) Grazing 
+\begin{equation}
+y =a\lfloor (x/b) \rfloor     
+\end{equation}
+where
+- $b = 7$ or the number of cells in each increment (aka the length of the step) 
+- $a = .5$ or the number of additional birds between steps 
+- and x is the size of the patch 
 
 
 
@@ -541,25 +552,9 @@ df_sol <- Gems[gann@solution[1, ] == 1, ]
 plot(gann)
 
 summary(gann)
-
-
-### ### Question for Clint - why don't the values differ with and without keepBest between these 2 GAs? 
-## What happens when we add "keepBest?"
-gann2 <- ga(type = "binary", ## For this problem, parcels are either in or out of the solution so we set type to binary
-           fitness = fun_tryme, ## This is just defining the fitness funciton that we created earlier 
-           popSize = 200, ## this is the number of chromosomes that will be generated
-           maxiter = 1000, ## Maximum number of times to run the GA before it stops 
-           run = 250, 
-           suggestions = Gems$ran, ### providing initial solution so GA has somewhere to start
-           nBits = nrow(Gems), 
-           seed = 12345, # this lets us replicate the results of the GA
-          keepBest=TRUE) ## Normally we discard the old population so if you find a solution that is very good, then it's lost. But we can modify this by picking the elite of a current generation
-
-#plot(gann2)
-#summary(gann2)
-#df_sol2 <- Gems[gann2@solution[1, ] == 1, ]
 ```
 We can see that it took 583 iterations before the GA stopped. While we set `maxiter` to 1000, the GA stopped before it reached this value because `run` was set to 250. So we reached the number of consecutive generations without any improvement before we reached the maximum number of iterations and so our GA stopped. Our fitness value was 1473.4 birds across 34 patches. So our first constraint was met - the GA didn't select more than 34 parcels. We can check our second constraint by taking the sum of the action categories of the patches selected in the solution. 
+
 ```{r}
 sum(df_sol$act_cat)
 ```
@@ -567,15 +562,164 @@ sum(df_sol$act_cat)
 And again we can see that this constraint was met - the value of our actions are greater than 15.
 
 
-### Simulated Annealing example: Habitat Acquisition for Bobwhites
+### SA example: Habitat Acquisition for Bobwhites
 
+#### Overview of SAs 
 Using the same data and example from the previous example on bobwhites, we'll repeat the same problem but instead of solving it with a Genetic Algorithm, we can use a different type of heuristic optimization algorithm called Simulated Annealing (SA). SA functions in many of the same ways as a GA in that it focuses on searching a specified neighborhood from an initial starting point. The concept behind SA is based on annealing from metallgury where metal is headed up to a certain temperature and then controlled cooling is used to change it's properties. So the SA algorithm starts by "heating" the problem up to a specified temperature that has a corresponding probability value that indicates whether or not a given solution should be accepted. As the temperature drops, the cooling also lowers the probability of a value being selected until it stabilizes. This set up allows For the SA to explore the neighborhood and accept possibly bad solutions in the beginning before stabilizing on the best solution in much later iterations. Without the probability value, then the SA would just be a gradient search tool that would stop once it reached the local minimum. 
 
+
+#### Running SA with the Habitat Acquisition problem 
+
+We start by defining the fitness function for this problem which will be the same as before but we will remove the control for the number of patches as the SA function will minimize this. We do need to worry about getting the maximum number of birds though, and so we use the same trick as before where we multiple the total by -1. This time using the fact that the SA algorithm will pick the smallest number to try and manipulate it into picking the largest number of birds. 
+
+```{r}
+fun_tryme <- function(x){
+  value = x*Gems[,2]
+  total_value_of_chromosome = sum(value)
+
+  # controls value of actions (don't want all to be the same action )
+  action = sum(x*Gems[,3])
+  maxcount <- 15
+  if(action < maxcount)
+    return(0)
+  else
+    return(-1 * total_value_of_chromosome)
+}
+
+```
+
+
+There is a [Simulated Annealing package in R](https://rdrr.io/cran/GenSA/man/GenSA.html) but at the time of writing this, there was not a clear way to use this package on a binary problem such as this one where items are either in or out of the solution. To adjust for this, the following code was compiled from references [5] and [6] and runs through the SA as a function. 
+
+We have to start by creating a way to test different solutions. Here, I have created 4 different swapping points, but in larger problems you may nee more. 
+```{r}
+## How to test different solutions (swap them..?)
+swap <- function(v, i , j, k, l){
+  aux <- v[i]
+  v[i] <- v[j]
+  v[i] <- v[k]
+  v[k] <- v[l]
+  v[l] <- aux
+  return(v)
+}
+```
+
+```{r}
+Gems$ran=sample(8,nrow(Gems),T)
+Gems[which(Gems$ran != 1),4] <- 0
+```
+
+The following code is a function that runs through a SA algorithm. 
+```{r}
+sa_circle <- function(inisol, iter=1000, T = 1e4, alpha = 0.9, p0 = 0.9, eval=TRUE){
+  
+  #setting up tracking of evolution if eval=TRUE
+  if(eval){
+    evalfit <- numeric()
+    evalbest <- numeric()
+    temp <- numeric()
+  }
+  
+  n <- length(inisol)
+  count <- 1
+  
+  #initialization of explored solution sol and best solution bestsol
+  #and objective funciton values fit  and bestfit
+  sol <- inisol
+  bestsol <- inisol
+  fit <- fun_tryme(sol) ## run through function to find mass center for that solution
+  bestfit <- fit
+  
+  
+  ## the simulated annealing loop
+  while(count < iter){
+    
+    #obtaining the testing solution x'
+    move <- sample(1:n, 4)
+    testsol <- swap(sol, move[1], move[2], move[3], move[4]) ## increased the number of times we are swapping things
+    testfit <- fun_tryme(testsol)
+    
+    #checking if we replace x by x'
+    if(exp(-(testfit-fit)/T) > runif(1)){
+      sol <- testsol
+      fit <- testfit
+    }
+    #updating the best solution
+    if(testfit <= bestfit){
+      bestsol <- testsol
+      bestfit <- testfit
+      count <- 1
+    }else{
+      count <- count + 1
+    }
+    
+    #keeping record of evolution of fit, bestfit and temperature if eval=TRUE
+    if(eval){
+      evalfit <- c(evalfit, fit)
+      evalbest <- c(evalbest, bestfit)
+      temp <- c(temp, T)
+    }
+    
+    T <- alpha*T
+    
+  }
+  #returning the solution
+  if(eval)
+    return(list(sol=bestsol, fit=bestfit, evalfit=evalfit, evalbest=evalbest, temp=temp))
+  else
+    return(list(sol=bestsol, fit=bestfit))
+}
+```
+
+We then go through and set the parameters, many of which are the same as those in GAs. And then run the function (this sometimes takes a few minutes)
+```{r, eval=FALSE}
+set.seed(501234)
+SA_ouput <- sa_circle(Gems$ran, 
+                  iter = 250, ## Number of times to run this
+                  T = 1e4, ## This initial temperature
+                  alpha = 0.99,  ## The cooling parameter or how fast we will converge on a solution 
+                  p0 = 0.5, ## The probability of accepting a solution 
+                  eval = TRUE) ## This can be turned on or off depending on wether you want the function to return certain outputs/information
+```
+
+
+From this, we can identify the number of patches selected in the final solution
+```{r, echo=FALSE, eval=FALSE}
+### Number of patches being selected 
+sum(SA_ouput$sol)
+```
+
+We can also create a plot to track how the algoirhtm is performing.  
+```{r, echo=FALSE, eval=FALSE}
+dftest <- SA_ouput
+dftest2 <- within(dftest, rm(sol,fit)) # removing 2 elements of list so can pull the rest of list into df
+
+
+df <- as.data.frame( t(data.frame(matrix(unlist(dftest2), nrow=length(dftest2), byrow=TRUE))) )
+colnames(df) <- c("evalfit",  "evalbest" , "temp"    )
+countme <- length(df$evalbest)
+df$step <- seq(1,countme)
+
+
+#create plot with two lines
+ggplot(df, aes(x = step)) + 
+  geom_line(aes(y = evalfit, color = 'red')) + 
+  geom_line(aes(y = evalbest, color = 'blue')) +
+  labs(x = 'Step', y = 'Number of Birds')
+```
+If we look at the blue line, we can see that the algorithm is still exploring the space and hasn't converged on a solution. To adjust for this, we probably want to make `iter` a larger value. The only problem with this, is that it takes a lot of compuational power to do this given the size of the problem and my computer crashed or froze when I made the value too high. 
 
 
 
 
 
 References: 
+[1] https://www.jontse.com/courses/cs5722.html
+[2] https://cran.r-project.org/web/packages/GA/vignettes/GA.html
+[3] https://towardsdatascience.com/genetic-algorithm-in-r-the-knapsack-problem-3edc5b07d4a7
+[4] https://vizerybusiness.wordpress.com/2020/03/23/vendor-consolidation-with-genetic-algorithms-in-r-%F0%9F%A7%AC/
+[5] https://jmsallan.netlify.app/blog/coding-simulated-annealing-in-r/
+[6] https://rpubs.com/mstefan-rpubs/salesman
+
 
 
