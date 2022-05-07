@@ -16,6 +16,11 @@ library(GA)
 library(genalg)
 
 
+
+### this looked intersting - fitness function specific..
+# https://dl.acm.org/doi/pdf/10.1145/2001858.2001929
+
+
 ### Another knapsack problem 
 # https://www.dataminingapps.com/2017/03/solving-the-knapsack-problem-with-a-simple-genetic-algorithm/
 
