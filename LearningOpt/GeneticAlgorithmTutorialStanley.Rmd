@@ -36,11 +36,12 @@ library(here)
 ### Introduction
 
 This tutorial was completed as part of an independent study I did with Dr. Clint Moore at the University of Georgia. My objectives were to: 
-- demonstrate genetic algorithm and simulated annealing functions in R to solve simple problems
+
+- Demonstrate genetic algorithm and simulated annealing functions in R to solve simple problems
 - Demonstrate how each could be on landscape with simple fitness function
 - Sprinkle in stochasticity 
 
-I start with an introduction on optimization, use a basic example to introduce Genetic Algorithms and then a slightly more complicated example for Genetic Algorithm. This same example is used to show how Simulated Annealing works. In working through this independent study, I scoured the internet for other tutorials that worked through these problems in the R language. The ones that were referenced to put together this tutorial are listed at the end of the document and there are a number of others in the "GATutorialWorkspace.R" script located on my [Github page](https://github.com/aestanley49/OptPrivateLandCons). 
+I start with an introduction on optimization, use a basic example to introduce Genetic Algorithms and then a slightly more complicated example for Genetic Algorithm. The same example is used to show how Simulated Annealing works. In working through this independent study, I scoured the internet for other tutorials that worked through these problems in the R language. The ones that were referenced to put together this tutorial are listed at the end of the document and there are a number of others in the "GATutorialWorkspace.R" script located on my [Github page](https://github.com/aestanley49/OptPrivateLandCons). 
 
 <br> 
 
@@ -115,7 +116,7 @@ Lets take a look at an example to show how this works..
 
 \section{A basic example}
 
-### GA example: Herpotology 101
+### GA example A: Herpotology 101
 
 #### A basic example
 
@@ -328,7 +329,7 @@ If you go through and run the code here, it's possible that you will get a diffe
 Also, the problem we presented here is also known as the minimum set problem where the goal is to minimize the cost of the reserve system while ensuring that all constraints are met. This is the same problem that marxan <img src="https://tse2.mm.bing.net/th?id=OIP.9CwGYuYjHds3YijYSPz3xwAAAA&pid=Api" width="50" height="50" /> solves using Simulated Annealing (which we will talk about later) and spacally explicit data. 
 
 
-### GA example 2: Habitat Acquisition for Bobwhites
+### GA example B: Habitat Acquisition for Bobwhites
 
 Let's put the minimum set problem in a more complicated real world context. Unfortunately that means that we will have to switch from talking about herps to talking about birds.. ah well. 
 
@@ -565,7 +566,7 @@ And again we can see that this constraint was met - the value of our actions are
 ### SA example: Habitat Acquisition for Bobwhites
 
 #### Overview of SAs 
-Using the same data and example from the previous example on bobwhites, we'll repeat the same problem but instead of solving it with a Genetic Algorithm, we can use a different type of heuristic optimization algorithm called Simulated Annealing (SA). SA functions in many of the same ways as a GA in that it focuses on searching a specified neighborhood from an initial starting point. The concept behind SA is based on annealing from metallgury where metal is headed up to a certain temperature and then controlled cooling is used to change it's properties. So the SA algorithm starts by "heating" the problem up to a specified temperature that has a corresponding probability value that indicates whether or not a given solution should be accepted. As the temperature drops, the cooling also lowers the probability of a value being selected until it stabilizes. This set up allows For the SA to explore the neighborhood and accept possibly bad solutions in the beginning before stabilizing on the best solution in much later iterations. Without the probability value, then the SA would just be a gradient search tool that would stop once it reached the local minimum. 
+Using the same data and example from the previous example on bobwhites, we'll repeat the same problem but instead of solving it with a Genetic Algorithm, we can use a different type of heuristic optimization algorithm called Simulated Annealing (SA). SA functions in many of the same ways as a GA in that it focuses on searching a specified neighborhood from an initial starting point. The concept behind SA is based on annealing from metallgury where metal is headed up to a certain temperature and then controlled cooling is used to change it's properties. So the SA algorithm starts by "heating" the problem up to a specified temperature that has a corresponding probability value that indicates whether or not a given solution should be accepted. As the temperature drops, the cooling also lowers the probability of a value being selected until it stabilizes. This set up allows for the SA to explore the neighborhood and accept possibly bad solutions in the beginning before stabilizing on the best solution in much later iterations. Without the probability value, the SA would just be a gradient search tool that would stop once it reached the local minimum. 
 
 
 #### Running SA with the Habitat Acquisition problem 
@@ -591,7 +592,7 @@ fun_tryme <- function(x){
 
 There is a [Simulated Annealing package in R](https://rdrr.io/cran/GenSA/man/GenSA.html) but at the time of writing this, there was not a clear way to use this package on a binary problem such as this one where items are either in or out of the solution. To adjust for this, the following code was compiled from references [5] and [6] and runs through the SA as a function. 
 
-We have to start by creating a way to test different solutions. Here, I have created 4 different swapping points, but in larger problems you may nee more. 
+We have to start by creating a way to test different solutions. Here, I have created 4 different swapping points, but in larger problems you may need more. 
 ```{r}
 ## How to test different solutions (swap them..?)
 swap <- function(v, i , j, k, l){
@@ -604,7 +605,7 @@ swap <- function(v, i , j, k, l){
 }
 ```
 
-```{r}
+```{r, include=FALSE}
 Gems$ran=sample(8,nrow(Gems),T)
 Gems[which(Gems$ran != 1),4] <- 0
 ```
@@ -672,10 +673,10 @@ sa_circle <- function(inisol, iter=1000, T = 1e4, alpha = 0.9, p0 = 0.9, eval=TR
 ```
 
 We then go through and set the parameters, many of which are the same as those in GAs. And then run the function (this sometimes takes a few minutes)
-```{r, eval=FALSE}
-set.seed(501234)
+```{r}
+set.seed(001234)
 SA_ouput <- sa_circle(Gems$ran, 
-                  iter = 250, ## Number of times to run this
+                  iter = 375, ## Number of times to run this
                   T = 1e4, ## This initial temperature
                   alpha = 0.99,  ## The cooling parameter or how fast we will converge on a solution 
                   p0 = 0.5, ## The probability of accepting a solution 
@@ -684,13 +685,13 @@ SA_ouput <- sa_circle(Gems$ran,
 
 
 From this, we can identify the number of patches selected in the final solution
-```{r, echo=FALSE, eval=FALSE}
+```{r, echo=FALSE}
 ### Number of patches being selected 
 sum(SA_ouput$sol)
 ```
 
 We can also create a plot to track how the algoirhtm is performing.  
-```{r, echo=FALSE, eval=FALSE}
+```{r, echo=FALSE}
 dftest <- SA_ouput
 dftest2 <- within(dftest, rm(sol,fit)) # removing 2 elements of list so can pull the rest of list into df
 
@@ -707,14 +708,22 @@ ggplot(df, aes(x = step)) +
   geom_line(aes(y = evalbest, color = 'blue')) +
   labs(x = 'Step', y = 'Number of Birds')
 ```
+
+<br>
 If we look at the blue line, we can see that the algorithm is still exploring the space and hasn't converged on a solution. To adjust for this, we probably want to make `iter` a larger value. The only problem with this, is that it takes a lot of compuational power to do this given the size of the problem and my computer crashed or froze when I made the value too high. 
 
+<br>
 
+Feel free to email any questions to annabelle.stanley(at)uga.edu or create an issue on my github! 
+
+<br>
+
+<img src="OutsideImages/Sally.jpg" width="200" height="266" /> <img src="OutsideImages/turtle.jpg" width="200" height="266" /> <img src="OutsideImages/frog.jpg" width="200" height="266" />
 
 
 
 References: 
-[1] https://www.jontse.com/courses/cs5722.html
+[1] https://www.jontse.com/courses/cs5722.html 
 [2] https://cran.r-project.org/web/packages/GA/vignettes/GA.html
 [3] https://towardsdatascience.com/genetic-algorithm-in-r-the-knapsack-problem-3edc5b07d4a7
 [4] https://vizerybusiness.wordpress.com/2020/03/23/vendor-consolidation-with-genetic-algorithms-in-r-%F0%9F%A7%AC/
